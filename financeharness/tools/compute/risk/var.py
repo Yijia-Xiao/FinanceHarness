@@ -16,6 +16,7 @@ import statistics
 from pydantic import BaseModel, Field
 
 from financeharness.runtime.tool_registry import ToolResponse, ToolSpec
+from financeharness.tools.compute.numeric import Finite
 from financeharness.tools.compute.risk.returns import pct_returns
 from financeharness.tools.format import pct
 
@@ -32,7 +33,7 @@ _MIN_POINTS = 5
 class VarRequest(BaseModel):
   """Input for historical value-at-risk over a price series."""
 
-  prices: list[float] = Field(
+  prices: list[Finite] = Field(
       Ellipsis,
       min_length=_MIN_POINTS,
       description="Price series (>=5), e.g. [180, 182, 179, 185, 183].",

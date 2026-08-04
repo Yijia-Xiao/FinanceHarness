@@ -15,6 +15,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, ValidationError, model_validator
 
 from financeharness.runtime.tool_registry import ToolResponse, ToolSpec
+from financeharness.tools.compute.numeric import Finite
 from financeharness.tools.compute.valuation.dcf import DCFRequest, compute_dcf
 from financeharness.tools.format import money, num, pct
 
@@ -31,7 +32,7 @@ _DESCRIPTION = (
 class DCFSensitivityRequest(BaseModel):
   """Input for a DCF sensitivity matrix over discount and terminal assumptions."""
 
-  fcf_schedule: list[float] = Field(
+  fcf_schedule: list[Finite] = Field(
       Ellipsis,
       min_length=1,
       max_length=30,
@@ -40,7 +41,7 @@ class DCFSensitivityRequest(BaseModel):
           "e.g. [1200, 1320, 1450]."
       ),
   )
-  discount_rates: list[float] = Field(
+  discount_rates: list[Finite] = Field(
       Ellipsis,
       min_length=1,
       max_length=12,
@@ -49,7 +50,7 @@ class DCFSensitivityRequest(BaseModel):
       ),
   )
   terminal_method: Literal["gordon_growth", "exit_multiple"] = "gordon_growth"
-  terminal_growth_rates: list[float] | None = Field(
+  terminal_growth_rates: list[Finite] | None = Field(
       None,
       max_length=12,
       description=(
@@ -57,20 +58,20 @@ class DCFSensitivityRequest(BaseModel):
           "e.g. [0.02, 0.03, 0.04]."
       ),
   )
-  terminal_ebitda: float | None = Field(
+  terminal_ebitda: Finite | None = Field(
       None, ge=0, description="Year-N EBITDA for exit_multiple cells."
   )
-  terminal_ebitda_multiples: list[float] | None = Field(
+  terminal_ebitda_multiples: list[Finite] | None = Field(
       None,
       max_length=12,
       description=(
           "EV/EBITDA multiple axis (cols) for exit_multiple, e.g. [10, 12, 14]."
       ),
   )
-  net_debt: float = Field(
+  net_debt: Finite = Field(
       0.0, description="Net debt subtracted from EV for equity value."
   )
-  shares_outstanding: float | None = Field(
+  shares_outstanding: Finite | None = Field(
       None,
       gt=0,
       description=(

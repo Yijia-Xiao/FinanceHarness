@@ -16,6 +16,7 @@ import statistics
 from pydantic import BaseModel, Field, model_validator
 
 from financeharness.runtime.tool_registry import ToolResponse, ToolSpec
+from financeharness.tools.compute.numeric import Finite
 from financeharness.tools.compute.risk.returns import align, pct_returns
 from financeharness.tools.format import num
 
@@ -31,7 +32,7 @@ _MIN_POINTS = 3
 class CorrelationRequest(BaseModel):
   """Input for a correlation matrix over named price series."""
 
-  series: dict[str, list[float]] = Field(
+  series: dict[str, list[Finite]] = Field(
       Ellipsis,
       min_length=2,
       description=(
