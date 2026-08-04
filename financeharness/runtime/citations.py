@@ -14,8 +14,13 @@ from __future__ import annotations
 import re
 
 # Strip any model-written reference section (h2/h3 / bold / bare line).
+# The bare-line form additionally requires the next line to look like a
+# bibliography entry, so a hard-wrapped sentence whose line happens to be the
+# single word "References" does not truncate the report at that point.
 _REF_SECTION_RE = re.compile(
-    r"\n+(?:##+\s*references\b|\*\*\s*references\s*\*\*|references:?\s*\n)",
+    r"\n+(?:##+\s*references\b"
+    r"|\*\*\s*references\s*\*\*"
+    r"|references:?[ \t]*\n(?=\s*(?:\[\d|https?://)))",
     flags=re.IGNORECASE,
 )
 # Strip leaked "[End of output … appends … references …]" template markers.
@@ -24,7 +29,12 @@ _EOM_LEAK_RE = re.compile(
     r"[^\]\n]*?(?:appends?)[^\]\n]*?references[^\]\n]*?\]?\s*",
     flags=re.IGNORECASE,
 )
-_BRACKET_RE = re.compile(r"(?P<lead>\s*)\[(?P<digits>\d+(?:\s*,\s*\d+)*)\]")
+# A citation marker never directly follows a word character or a closing
+# bracket; requiring that keeps subscript notation (``arr[0]``, ``x[1][2]``)
+# out of the orphan sweep below.
+_BRACKET_RE = re.compile(
+    r"(?P<lead>\s*)(?<![\w\]])\[(?P<digits>\d+(?:\s*,\s*\d+)*)\]"
+)
 
 
 def format_references_block(citations):
@@ -52,8 +62,8 @@ def validate_and_append_references(
 
   n_refs = len(citations)
   cited: set[int] = set()
-  for match in re.finditer(r"\[(\d+(?:\s*,\s*\d+)*)\]", body):
-    for n in match.group(1).split(","):
+  for match in _BRACKET_RE.finditer(body):
+    for n in match.group("digits").split(","):
       with_int = n.strip()
       if with_int.isdigit():
         cited.add(int(with_int))
