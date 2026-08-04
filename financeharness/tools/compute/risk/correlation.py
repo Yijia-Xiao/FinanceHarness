@@ -61,17 +61,21 @@ def compute_correlation(series):
   # correlation matrix — and n_obs is the actual count used.
   aligned = dict(zip(names, align(*(rets[k] for k in names)), strict=True))
   n_obs = len(next(iter(aligned.values()))) if aligned else 0
+  # A series' variance is a property of the series, not of the pair, so compute
+  # it once per name rather than twice per pair — the pairwise loop below is
+  # O(N²), which made this O(N²·n) on inputs that are cheap to chain in.
+  variances = (
+      {k: statistics.variance(v) for k, v in aligned.items()}
+      if n_obs >= 2
+      else {}
+  )
   matrix: dict[str, dict[str, float | None]] = {a: {} for a in names}
   for i, a in enumerate(names):
     for b in names[i:]:
       ra, rb = aligned[a], aligned[b]
       # correlation is undefined (and statistics.correlation raises) when either
       # series is constant — report None rather than erroring on valid input.
-      computable = (
-          n_obs >= 2
-          and statistics.variance(ra) > 0
-          and statistics.variance(rb) > 0
-      )
+      computable = n_obs >= 2 and variances[a] > 0 and variances[b] > 0
       corr = statistics.correlation(ra, rb) if computable else None
       c = round(corr, 4) if corr is not None else None
       matrix[a][b] = c
