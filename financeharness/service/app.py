@@ -1,22 +1,31 @@
-"""FastAPI app — research/clarify/compact endpoints, sessions, health.
+"""FastAPI app — research/clarify/compact endpoints, sessions, health, MCP.
 
 `POST /research` serves both the sync JSON path and the SSE stream
 (stream=true).
 `run_research` is module-level so a caller can substitute a fake (a headless
 client needs no live LLM).
+
+`GET /mcp` reports the configured external MCP servers and what they expose, so
+a client can show which data sources a run can actually reach.
+
+When the React frontend has been built (``web/dist``), it is served at ``/`` —
+one process then serves the API and the UI. Absent a build, the API runs alone.
 """
 
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import Any
 
 import httpx
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from financeharness.clarify import scope_question, scope_question_stream
+from financeharness.mcp import McpHub, config_path, load_mcp_servers, mcp_disabled
 from financeharness.providers import (
     available_backbones,
     client_for,
@@ -350,6 +359,45 @@ async def models():
   return {"models": available_backbones(), "default": default_profile_name()}
 
 
+@app.get("/mcp")
+async def mcp(probe: bool = True):
+  """The external MCP servers this harness can borrow tools from.
+
+  ``probe=true`` (the default) connects to each configured server and reports
+  what it actually exposes — the honest answer to "can this run reach my data?".
+  ``probe=false`` returns the configuration alone (no child processes started, no
+  endpoints touched), which is the cheap call for a page load.
+  """
+  configured = load_mcp_servers(include_disabled=True)
+  summary = {
+      "enabled": not mcp_disabled(),
+      "config_path": str(config_path()),
+      "configured": [
+          {
+              "name": c.name,
+              "transport": c.resolved_transport(),
+              "target": c.target(),
+              "enabled": c.enabled,
+              "tool_allowlist": c.tools,
+          }
+          for c in configured
+      ],
+  }
+  active = [c for c in configured if c.enabled] if not mcp_disabled() else []
+  if not probe or not active:
+    summary["servers"] = []
+    summary["probed"] = False
+    return summary
+  hub = await McpHub.connect(active)
+  try:
+    summary["servers"] = hub.status()
+    summary["tool_count"] = len(hub.specs())
+  finally:
+    await hub.aclose()
+  summary["probed"] = True
+  return summary
+
+
 @app.get("/status")
 async def status(
     session_id = None, profile = None
@@ -399,3 +447,27 @@ async def research(req: ResearchRequest):
   if req.session_id:
     traj = {**traj, "session_id": req.session_id}
   return traj
+
+
+# --- the web UI -------------------------------------------------------------
+# Mounted last so every API route above wins; a client-side-routed SPA needs its
+# index served for unknown paths, hence the explicit fallback. Skipped entirely
+# when the frontend hasn't been built — `fh serve` is useful API-only.
+_WEB_DIST = Path(__file__).resolve().parents[2] / "web" / "dist"
+
+if _WEB_DIST.is_dir():
+  app.mount(
+      "/assets", StaticFiles(directory=_WEB_DIST / "assets"), name="assets"
+  )
+
+  @app.get("/")
+  async def index():
+    return FileResponse(_WEB_DIST / "index.html")
+
+  @app.get("/{path:path}", include_in_schema=False)
+  async def spa_fallback(path):
+    """Serve a real file when it exists, else the SPA shell."""
+    candidate = (_WEB_DIST / path).resolve()
+    if candidate.is_file() and _WEB_DIST in candidate.parents:
+      return FileResponse(candidate)
+    return FileResponse(_WEB_DIST / "index.html")

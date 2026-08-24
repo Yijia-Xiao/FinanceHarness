@@ -58,6 +58,10 @@ class ModelProfile(BaseModel):
   timeout_s: float = 600.0
   generation: Generation = Field(default_factory=Generation)
   extra_body: dict[str, Any] = Field(default_factory=dict)
+  # Extra HTTP headers sent with every Chat Completions call — the header side of
+  # the wire, mirroring ``extra_body``. Aggregators want app attribution here
+  # (OpenRouter's HTTP-Referer / X-Title); most endpoints need none.
+  extra_headers: dict[str, str] = Field(default_factory=dict)
   adapter: str | None = None  # quirk-adapter name (see providers/adapters)
   # The wire protocol the loop uses (providers/base.Provider): "chat" =
   # OpenAI-compatible Chat Completions (works with vLLM / any compatible endpoint);
@@ -82,7 +86,7 @@ class ModelProfile(BaseModel):
 
 
 # Built-in backbones — the runtime that serves the model is the axis of identity:
-#   hosted:  gemini (Google) · gpt (OpenAI)   — need an API key
+#   hosted:  gemini (Google) · gpt (OpenAI) · openrouter (aggregator) — need an API key
 #   local:   qwen (open-weight, via vLLM)      — keyless, self-served
 # The default is `gemini` (a cloud backbone that runs with only an API key, so a
 # fresh install works without standing up a server). Each backbone names the
@@ -95,6 +99,7 @@ _QWEN_READER_BASE_URL = (  # local vLLM (open-weight reader)
     "http://127.0.0.1:8001/v1"
 )
 _GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"  # aggregator (many vendors)
 
 _BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
     "gemini": {
@@ -119,6 +124,26 @@ _BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
         "adapter": "openai",
         "reader_profile": "gpt",  # reads its own pages (Chat Completions path)
         "generation": {"max_tokens": 16384},
+    },
+    "openrouter": {
+        "name": "openrouter",
+        # An aggregator, not a single vendor: one key reaches models from many
+        # providers over the same OpenAI-compatible Chat Completions wire, so the
+        # vanilla path serves it with no adapter. The `model` is an OpenRouter slug
+        # (`vendor/model`) and is the knob you actually turn — override it per run
+        # with FH_OPENROUTER_MODEL, or pin one in configs/providers.json. Needs
+        # OPENROUTER_API_KEY.
+        "model": "anthropic/claude-sonnet-4.5",
+        "base_url": _OPENROUTER_BASE_URL,
+        "api_key_env": "OPENROUTER_API_KEY",
+        # Optional app attribution on openrouter.ai (rankings + dashboard); harmless
+        # to send, and overridable like any other profile field.
+        "extra_headers": {
+            "HTTP-Referer": "https://github.com/Yijia-Xiao/FinanceHarness",
+            "X-Title": "FinanceHarness",
+        },
+        "reader_profile": "openrouter",  # reads its own pages (Chat Completions path)
+        "generation": {"temperature": 0.7, "top_p": 0.95, "max_tokens": 16384},
     },
     "qwen": {
         "name": "qwen",

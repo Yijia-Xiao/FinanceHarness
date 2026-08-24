@@ -13,6 +13,8 @@ Event sequence (research stream):
   tool_result  {name, call_id, ok, elapsed_s, round, result?}  per tool result
                  (result: truncated data_/compute_ output for the trace; null
                  otherwise)
+  mcp          {servers:[{name, connected, tools, …}]}  external MCP servers
+                 borrowed for this run (once, near the start)
   source       {index, url, title, headline}    per page read by visit (live
   rail)
   plan         {items:[{step,status}]}          the live research plan
@@ -55,6 +57,7 @@ EVENT_TYPES = frozenset({
     "tool_call",
     "tool_progress",
     "tool_result",
+    "mcp",  # external MCP servers connected for this run: {servers:[…]}
     "source",  # a page read by visit: {index, url, title, headline} — live sources rail
     "plan",  # the live research plan from update_plan: {items:[{step,status}]}
     "token",

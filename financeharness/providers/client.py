@@ -1,8 +1,8 @@
 """The backbone client seam — build a client and issue chat completions.
 
 One place constructs the OpenAI-compatible ``AsyncOpenAI`` client and assembles
-the create-kwargs (model-agnostic base + profile ``extra_body`` + quirk
-adapter).
+the create-kwargs (model-agnostic base + profile ``extra_body`` /
+``extra_headers`` + quirk adapter).
 Both a non-streaming :func:`complete` and a streaming :func:`stream` are
 provided;
 the streaming path returns an assembled ``ChatCompletion`` of the *same shape*
@@ -51,8 +51,9 @@ def build_create_kwargs(
   """Assemble the chat-completion kwargs for a profile.
 
   Vanilla OpenAI params first (so any compatible endpoint works), then the
-  profile's ``extra_body``, then the quirk adapter. ``tools`` are omitted
-  entirely when empty (endpoints treat that as "no tool calling").
+  profile's ``extra_body`` / ``extra_headers``, then the quirk adapter.
+  ``tools`` are omitted entirely when empty (endpoints treat that as "no tool
+  calling").
   """
   g = profile.generation
   # Strip "_"-prefixed history keys (opaque provider state, e.g. another provider's
@@ -73,6 +74,10 @@ def build_create_kwargs(
     kwargs["tool_choice"] = tool_choice
   if profile.extra_body:
     kwargs["extra_body"] = dict(profile.extra_body)
+  if profile.extra_headers:
+    # Header-side of the wire (e.g. OpenRouter app attribution). The SDK forwards
+    # `extra_headers` on both the plain and the streaming create().
+    kwargs["extra_headers"] = dict(profile.extra_headers)
   return apply_adapter(profile.adapter, kwargs)
 
 

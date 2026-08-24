@@ -15,6 +15,12 @@ dist/
 .env
 .env.*
 
+# Node — the web console's dependencies and build output (`dist/` above covers
+# web/dist); package-lock.json IS committed so a build is reproducible.
+node_modules/
+web/.vite/
+*.local
+
 # Run artifacts
 logs/
 runs/

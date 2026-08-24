@@ -1,0 +1,43 @@
+{
+  "_comment": "External MCP servers this harness borrows tools from. Each server's tools join the run's deferred tier, so they appear in the prompt catalog and the model loads what it needs (see financeharness/mcp/hub.py). Two transports: a local child process (`command` + `args`) \u2014 the path for private data, which never leaves the machine \u2014 or a streamable-HTTP endpoint (`url` + optional `headers`). `${VAR}` in any string is expanded from the environment, so tokens stay out of this file. `tools` is an optional allowlist of the server's own tool names (empty = all); `resources: true` also bridges the server's resources as a list/read pair, which is what makes a source with no tools of its own readable. `catalog` controls prompt cost: \"full\" gives every tool its own catalog line, \"index\" gives the server one line listing its tool names (the model pulls schemas with load_tool), and \"auto\" (default) switches to index past `catalog_threshold` tools \u2014 a provider exposing 90+ tools would otherwise price its whole surface into every model call. Set `enabled: false` to keep an entry as documentation, `FH_MCP_DISABLE=1` to turn the whole integration off, or `FH_MCP_CONFIG=/path/to.json` to use a different file entirely.",
+  "servers": {
+    "portfolio": {
+      "enabled": false,
+      "command": "uv",
+      "args": [
+        "run",
+        "python",
+        "examples/mcp/local_portfolio.py"
+      ],
+      "env": {
+        "FH_PORTFOLIO_CSV": "${FH_PORTFOLIO_CSV}"
+      },
+      "resources": true
+    },
+    "eodhd": {
+      "enabled": false,
+      "url": "https://mcp.eodhd.com/v1/mcp?apikey=${EODHD_API_KEY}",
+      "catalog": "auto",
+      "resources": false
+    },
+    "filesystem": {
+      "enabled": false,
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "${HOME}/research"
+      ],
+      "resources": true
+    },
+    "internal-api": {
+      "enabled": false,
+      "url": "https://mcp.internal.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${INTERNAL_MCP_TOKEN}"
+      },
+      "tools": [],
+      "timeout_s": 60
+    }
+  }
+}

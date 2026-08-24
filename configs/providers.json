@@ -1,4 +1,4 @@
 {
-  "_comment": "Backbone/reader profiles are defined in financeharness/providers/profiles.py (the source of truth): gemini (Google) + gpt (OpenAI) + qwen/qwen-reader (open-weight, over an OpenAI-compatible vLLM endpoint). This file only selects the active default and may override or add profiles (file wins per-name); per-profile base_url and model are also overridable via FH_<NAME>_BASE_URL and FH_<NAME>_MODEL.",
+  "_comment": "Backbone/reader profiles are defined in financeharness/providers/profiles.py (the source of truth): gemini (Google) + gpt (OpenAI) + openrouter (aggregator: one key, many vendors) + qwen/qwen-reader (open-weight, over an OpenAI-compatible vLLM endpoint). This file only selects the active default and may override or add profiles (file wins per-name); per-profile base_url and model are also overridable via FH_<NAME>_BASE_URL and FH_<NAME>_MODEL (FH_OPENROUTER_MODEL picks the OpenRouter slug to route to).",
   "default": "gemini"
 }

@@ -66,6 +66,11 @@ class ToolSpec:
   request_schema: Pydantic v2 model for input args
   handler:        async callable receiving a validated request instance
   tags:           freeform routing hints surfaced in the catalog
+  in_catalog:     whether the deferred catalog lists this tool individually.
+                  False keeps a tool fully callable (``load_tool`` finds it by
+                  name) while leaving it out of the prompt — the escape hatch for
+                  a source that contributes tools by the dozen and would
+                  otherwise price its whole surface into every model call.
   """
 
   name: str
@@ -75,6 +80,7 @@ class ToolSpec:
   request_schema: type[BaseModel]
   handler: ToolHandler
   tags: tuple[str, Ellipsis] = field(default_factory=tuple)
+  in_catalog: bool = True
 
   def __post_init__(self):
     if not _NAME_RE.match(self.name):
@@ -148,8 +154,15 @@ class ToolRegistry:
     return [t for t in self._tools.values() if t.tier == "deferred"]
 
   def catalog_text(self):
-    """The deferred-tool catalog as one text block for the system prompt."""
-    deferred = sorted(self.deferred_tools(), key=lambda s: s.name)
+    """The deferred-tool catalog as one text block for the system prompt.
+
+    Only tools that opted into the catalog appear. The rest stay callable by
+    name through ``load_tool`` — something has to stand in for them in the
+    prompt (see the MCP hub's per-server index), or the model can't find them.
+    """
+    deferred = sorted(
+        (t for t in self.deferred_tools() if t.in_catalog), key=lambda s: s.name
+    )
     return "\n".join(t.catalog_line() for t in deferred)
 
 

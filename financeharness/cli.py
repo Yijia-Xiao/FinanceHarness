@@ -6,8 +6,9 @@ Headless one-shot research (progress to stderr, report to stdout, pipeable):
     report
     financeharness -p "..." --save run.json --profile gemini
     echo "..." | financeharness -p            # question piped via stdin
-    financeharness --list                     # show profiles + skills
-    financeharness serve                      # the HTTP+SSE backend only
+    financeharness --list                     # show profiles + skills + MCP
+    financeharness serve                      # the HTTP+SSE backend (and web UI)
+    financeharness mcp                        # serve the harness over MCP (stdio)
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ import asyncio
 import sys
 from typing import Any
 
+from financeharness.mcp import load_mcp_servers, mcp_disabled
 from financeharness.providers import get_profile, load_profiles
 from financeharness.research import run_research, save_trajectory
 from financeharness.tools.research import default_skill_registry
@@ -95,6 +97,81 @@ def _serve(argv: list[str]) -> int:
   return 0
 
 
+def _mcp(argv: list[str]) -> int:
+  """`fh mcp` — expose the harness itself over the Model Context Protocol.
+
+  stdio by default, which is what an MCP host (Claude Desktop, an IDE) spawns.
+  In stdio mode stdout *is* the protocol channel, so every message this function
+  prints goes to stderr.
+  """
+  ap = argparse.ArgumentParser(
+      prog="financeharness mcp",
+      description="Serve FinanceHarness tools, skills and deep_research over MCP",
+  )
+  ap.add_argument(
+      "--http",
+      action="store_true",
+      help="serve over streamable HTTP instead of stdio (for a remote client)",
+  )
+  ap.add_argument("--host", default="127.0.0.1")
+  ap.add_argument("--port", type=int, default=8765)
+  ap.add_argument(
+      "--path", default="/mcp", help="HTTP path for the MCP endpoint (--http)"
+  )
+  ap.add_argument(
+      "--list",
+      action="store_true",
+      help="print the tools/skills that would be exposed, then exit",
+  )
+  ap.add_argument(
+      "--profile", default=None, help="backbone for deep_research (default: configured)"
+  )
+  args = ap.parse_args(argv)
+
+  from financeharness.mcp.server import build_server, describe_surface
+
+  if args.list:
+    surface = describe_surface()
+    print(f"FinanceHarness MCP server — backbone {surface['backbone']}")
+    print(f"\nTools ({len(surface['tools'])}):")
+    for tool in surface["tools"]:
+      print(f"  {tool['name']}")
+    print("\nSkills (exposed as MCP prompts + resources):")
+    for name in surface["skills"]:
+      print(f"  {name}")
+    if surface.get("skipped"):
+      print(f"\nNot exposed (unbridgeable schema): {', '.join(surface['skipped'])}")
+    return 0
+
+  server, session = build_server(
+      backbone=get_profile(args.profile) if args.profile else None
+  )
+  if args.http:
+    _err(f"[fh] MCP over HTTP at http://{args.host}:{args.port}{args.path}")
+    asyncio.run(
+        server.run_streamable_http_async(
+            host=args.host, port=args.port, streamable_http_path=args.path
+        )
+    )
+    return 0
+  _err(f"[fh] MCP on stdio · backbone {session.backbone.name} · ready")
+  asyncio.run(server.run_stdio_async())
+  return 0
+
+
+def _mcp_client_lines() -> list[str]:
+  """The configured *outbound* MCP servers, for `--list` (config only, no dial)."""
+  if mcp_disabled():
+    return ["  (disabled by FH_MCP_DISABLE)"]
+  servers = load_mcp_servers(include_disabled=True)
+  if not servers:
+    return ["  (none configured — see configs/mcp.json)"]
+  return [
+      f"  {'  ' if s.enabled else '× '}{s.name} [{s.resolved_transport()}]: {s.target()}"
+      for s in servers
+  ]
+
+
 def _list() -> int:
   # Backbones only — the selectable orchestrator profiles (readers are paired
   # internally and are not a `--profile` choice), matching --profile validation.
@@ -110,6 +187,9 @@ def _list() -> int:
   print("\nSkills (the model loads these on demand):")
   for s in default_skill_registry().all():
     print(f"   {s.name}: {s.description}")
+  print("\nMCP servers (external tools this harness can borrow):")
+  for line in _mcp_client_lines():
+    print(line)
   return 0
 
 
@@ -119,9 +199,11 @@ def main() -> None:
   Headless one-shot research; ``serve`` for the backend alone.
   """
 
-  # `serve` is a sub-command; everything else is the research parser.
+  # `serve` and `mcp` are sub-commands; everything else is the research parser.
   if sys.argv[1:2] == ["serve"]:
     raise SystemExit(_serve(sys.argv[2:]))
+  if sys.argv[1:2] == ["mcp"]:
+    raise SystemExit(_mcp(sys.argv[2:]))
 
   ap = argparse.ArgumentParser(
       prog="financeharness",

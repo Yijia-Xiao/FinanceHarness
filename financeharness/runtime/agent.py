@@ -57,15 +57,14 @@ _CALL_ID_FOOTER = (  # the chaining hint appended for the model — not for the 
 def _ui_tool_result(name, result):
   """The grounding data behind a tool call, surfaced to the UI trace so a reader can
 
-  audit the numbers a report rests on. Only the data/compute tools (the fetched
-  or
-  computed figures that are otherwise invisible) — web evidence already lives in
-  the
-  Sources rail, and ``calc``/orchestration carry nothing to audit. The chaining
-  footer is dropped and the body truncated; ``None`` when there's nothing to
-  show.
+  audit the numbers a report rests on. Only the data/compute tools and borrowed
+  MCP tools (the fetched or computed figures that are otherwise invisible) — web
+  evidence already lives in the Sources rail, and ``calc``/orchestration carry
+  nothing to audit. Data from an external MCP server especially wants showing:
+  it's the one input a reader can't otherwise see. The chaining footer is dropped
+  and the body truncated; ``None`` when there's nothing to show.
   """
-  if not result.ok or not name.startswith(("data_", "compute_")):
+  if not result.ok or not name.startswith(("data_", "compute_", "mcp_")):
     return None
   md = result.markdown.split(_CALL_ID_FOOTER, 1)[0].strip()
   if not md:
