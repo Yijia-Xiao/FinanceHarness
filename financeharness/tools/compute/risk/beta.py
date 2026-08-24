@@ -13,6 +13,7 @@ import statistics
 from pydantic import BaseModel, Field, model_validator
 
 from financeharness.runtime.tool_registry import ToolError, ToolResponse, ToolSpec
+from financeharness.tools.compute.numeric import Finite
 from financeharness.tools.compute.risk.returns import align, pct_returns
 from financeharness.tools.format import num
 
@@ -29,12 +30,12 @@ _MIN_POINTS = 3
 class BetaRequest(BaseModel):
   """Input for estimating asset beta versus a benchmark series."""
 
-  asset_prices: list[float] = Field(
+  asset_prices: list[Finite] = Field(
       Ellipsis,
       min_length=_MIN_POINTS,
       description="Asset price series, e.g. [180, 182, 179, 185].",
   )
-  benchmark_prices: list[float] = Field(
+  benchmark_prices: list[Finite] = Field(
       Ellipsis,
       min_length=_MIN_POINTS,
       description=(

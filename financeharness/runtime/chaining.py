@@ -53,6 +53,20 @@ class _ParsedRef:
   raw: str
 
 
+def _as_int(tok):
+  """Parse an integer path token, or ``None`` when it is not one.
+
+  ``str.isdigit()`` is not a test for ``int()``-parseability: it is true for
+  characters ``int()`` rejects (``'²'``), ``lstrip('-')`` hides repeated signs
+  (``'--5'``), and a long enough digit run trips CPython's int/str conversion
+  limit. All three reach ``int()`` as a ValueError, so parse defensively.
+  """
+  try:
+    return int(tok)
+  except ValueError:
+    return None
+
+
 def _parse_reference(raw):
   if not raw.startswith(_REF_PREFIX):
     return ChainError(raw, "reference must start with 'prev:'")
@@ -77,7 +91,7 @@ def _parse_reference(raw):
       inner = im.group(1)
       if inner == "*":
         indexers.append("*")
-      elif inner.lstrip("-").isdigit():
+      elif _as_int(inner) is not None:
         indexers.append(inner)
       else:
         return ChainError(
@@ -100,8 +114,9 @@ def _descend_key(cur, key, raw):
     )
   if key in cur:
     return cur[key]
-  if key.lstrip("-").isdigit() and int(key) in cur:  # int-typed dict keys
-    return cur[int(key)]
+  as_int = _as_int(key)
+  if as_int is not None and as_int in cur:  # int-typed dict keys
+    return cur[as_int]
   return ChainError(
       raw,
       f"no field '{key}' on resolved object (available:"

@@ -9,10 +9,17 @@ rendered (a negative free cash flow shows as ``-$1.20B``, not ``n/a``);
 
 from __future__ import annotations
 
+import math
+
 
 def _is_real(v):
-  """A real, finite number — excludes None, NaN, and bools."""
-  return isinstance(v, int | float) and not isinstance(v, bool) and v == v
+  """A real, finite number — excludes None, NaN, infinity, and bools."""
+  if isinstance(v, bool) or not isinstance(v, int | float):
+    return False
+  try:
+    return math.isfinite(v)
+  except OverflowError:  # an int too large to represent as a float
+    return False
 
 
 def money(v):
@@ -23,7 +30,9 @@ def money(v):
   for unit, scale in (("T", 1e12), ("B", 1e9), ("M", 1e6)):
     if a >= scale:
       return f"{sign}${a / scale:.2f}{unit}"
-  return f"{sign}${a:,.0f}"
+  if a >= 1000:
+    return f"{sign}${a:,.0f}"
+  return f"{sign}${a:,.2f}"
 
 
 def pct(v, digits = 1):
