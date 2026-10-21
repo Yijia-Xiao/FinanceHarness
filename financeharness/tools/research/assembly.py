@@ -21,6 +21,7 @@ from financeharness.tools.compute.arithmetic import SPEC as CALC_SPEC
 from financeharness.tools.core.plan import PLAN_SPEC
 from financeharness.tools.data.equity import EQUITY_DATA_SPECS
 from financeharness.tools.data.market import MARKET_DATA_SPECS
+from financeharness.tools.data.options import OPTIONS_DATA_SPECS
 from financeharness.tools.research.citations import build_citations_spec
 from financeharness.tools.research.search import build_search_spec
 from financeharness.tools.research.visit import build_visit_spec
@@ -83,7 +84,12 @@ def build_equity_research_registry(
   registry.register(
       PLAN_SPEC
   )  # core: a live research plan/checklist for multi-step work
-  for spec in (*EQUITY_DATA_SPECS, *MARKET_DATA_SPECS, *COMPUTE_SPECS):
+  for spec in (
+      *EQUITY_DATA_SPECS,
+      *MARKET_DATA_SPECS,
+      *OPTIONS_DATA_SPECS,
+      *COMPUTE_SPECS,
+  ):
     registry.register(spec)
   return registry
 

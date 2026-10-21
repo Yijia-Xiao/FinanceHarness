@@ -127,10 +127,13 @@ demand with `load_tool`.
 | **Core** | `calc`, `update_plan`, `load_tool`, `load_skill` |
 | **Equity data** | `data_equity_reference`, `data_equity_prices`, `data_equity_fundamentals`, `data_equity_ratios`, `data_equity_comps`, `data_equity_estimates` |
 | **Market data** | `data_market_rates`, `data_market_indices` |
+| **Options data** | `data_options_chain` |
 | **Valuation** | `compute_valuation_dcf`, `compute_valuation_dcf_sensitivity`, `compute_valuation_wacc` |
 | **Risk** | `compute_risk_correlation`, `compute_risk_var`, `compute_risk_beta` |
+| **Options** | `compute_options_black_scholes`, `compute_options_implied_vol` |
 
-Company and market data are sourced through `yfinance`.
+Company, market, and option-chain data are sourced through `yfinance`; option
+quotes are delayed and carry no Greeks, which the options tools compute.
 
 ## Extend with skills
 
@@ -145,6 +148,7 @@ one with `load_skill` when it fits the task. Bundled:
 | `relative-valuation` | Peer-median multiples applied to the company for an implied range. |
 | `consensus-check` | Sell-side view (targets, estimates, ratings) corroborated against the web. |
 | `equity-deep-dive` | The full workflow: qualitative picture + fundamentals + DCF + comps + consensus. |
+| `options-pricing` | Option chain → risk-free rate → realized vol → Black-Scholes prices, Greeks and implied vol, vs. the market. |
 
 Discovery runs in increasing precedence: bundled `financeharness/skills/` → a
 project `./skills/` → `FH_SKILLS_DIR`. A project skill overrides a built-in by
