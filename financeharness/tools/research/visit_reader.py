@@ -7,8 +7,6 @@ import re
 from financeharness.providers import complete
 from financeharness.runtime.jsonutil import extract_json_obj
 
-_READER_CHAR_BUDGET = 24000
-
 EXTRACTOR_PROMPT = """\
 You extract grounded content from a fetched webpage for a research agent. Return \
 ONLY a JSON object with three fields:
@@ -53,7 +51,7 @@ async def read_page(
     config,
 ):
   """Run the reader-model extraction over page text."""
-  snippet = text[:_READER_CHAR_BUDGET]
+  snippet = text[: config.reader.max_chars]
   user = (
       f"Research goal: {goal}\n\n" if goal else ""
   ) + f"Webpage content:\n\n{snippet}"

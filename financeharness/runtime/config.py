@@ -77,6 +77,10 @@ class ReaderConfig(_Section):
   max_tokens: int = (
       8192  # generous so reasoning-model readers leave room for output
   )
+  # Characters of page text the reader sees; None is the whole page. Filing
+  # questions need it whole: a 10-K's reconciliation tables often sit 200k+
+  # characters in. A reader with a small context window may need a limit.
+  max_chars: int | None = None
 
 
 class RuntimeConfig(_Section):

@@ -21,5 +21,5 @@
     "compaction_buffer_tokens": 4096,
     "proactive_compaction": true
   },
-  "reader": { "max_tokens": 8192 }
+  "reader": { "max_tokens": 8192, "max_chars": null }
 }
