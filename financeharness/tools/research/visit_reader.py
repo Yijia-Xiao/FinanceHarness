@@ -6,6 +6,7 @@ import re
 
 from financeharness.providers import complete
 from financeharness.runtime.jsonutil import extract_json_obj
+from financeharness.runtime.recovery import escalate_max_tokens
 
 EXTRACTOR_PROMPT = """\
 You extract grounded content from a fetched webpage for a research agent. Return \
@@ -55,24 +56,52 @@ async def read_page(
   user = (
       f"Research goal: {goal}\n\n" if goal else ""
   ) + f"Webpage content:\n\n{snippet}"
-  try:
-    resp = await complete(
-        profile,
-        [
-            {"role": "system", "content": EXTRACTOR_PROMPT},
-            {"role": "user", "content": user},
-        ],
-        max_tokens=config.reader.max_tokens,
-        client=client,
+  max_tokens = config.reader.max_tokens
+  escalations = 0
+  while True:
+    try:
+      resp = await complete(
+          profile,
+          [
+              {"role": "system", "content": EXTRACTOR_PROMPT},
+              {"role": "user", "content": user},
+          ],
+          max_tokens=max_tokens,
+          client=client,
+      )
+      choice = resp.choices[0]
+      raw = choice.message.content or ""
+    except Exception as exc:  # noqa: BLE001 — reader/transport failure, not page inaccessibility
+      return {
+          "accessible": False,
+          "summary": "",
+          "evidence": "",
+          "reader_error": str(exc),
+      }
+    if getattr(choice, "finish_reason", None) != "length":
+      break
+    # Out of output tokens — a reasoning model can spend them all thinking.
+    # Raise the budget as the agent loop does; if it still runs out with
+    # nothing written, that's a reader failure, not an inaccessible page.
+    nxt = escalate_max_tokens(
+        max_tokens,
+        config.generation.max_tokens_ceiling,
+        config.generation.max_tokens_escalation_factor,
     )
-    raw = resp.choices[0].message.content or ""
-  except Exception as exc:  # noqa: BLE001 — reader/transport failure, not page inaccessibility
-    return {
-        "accessible": False,
-        "summary": "",
-        "evidence": "",
-        "reader_error": str(exc),
-    }
+    if nxt is None or escalations >= config.limits.max_truncation_escalations:
+      if not raw.strip():
+        return {
+            "accessible": False,
+            "summary": "",
+            "evidence": "",
+            "reader_error": (
+                f"the reader used all {max_tokens} output tokens before"
+                " writing its summary"
+            ),
+        }
+      break
+    max_tokens = nxt
+    escalations += 1
 
   obj = extract_json_obj(raw)
   if obj is None:
