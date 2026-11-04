@@ -11,7 +11,8 @@
     "max_rounds": 100,
     "max_transient_retries": 10,
     "max_truncation_escalations": 3,
-    "max_regenerate_retries": 3
+    "max_regenerate_retries": 3,
+    "max_empty_reply_retries": 2
   },
   "backoff": { "base_delay_s": 1.0, "max_delay_s": 30.0, "jitter": true },
   "recovery": {

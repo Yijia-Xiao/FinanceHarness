@@ -48,6 +48,9 @@ class LimitsConfig(_Section):
   max_transient_retries: int = 10
   max_truncation_escalations: int = 3
   max_regenerate_retries: int = 3
+  # Blank replies (no text, no tool calls) answered with a nudge before the
+  # run ends as "empty_answer".
+  max_empty_reply_retries: int = 2
 
 
 class BackoffConfig(_Section):
