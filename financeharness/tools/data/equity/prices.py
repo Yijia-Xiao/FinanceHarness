@@ -1,9 +1,13 @@
 """data.equity.prices — OHLCV history + derived technicals.
 
-`bars[*]` is the stable chaining surface (`prev:<id>.bars[*].close` into compute
-tools). Derived measures are named canon only — SMA(20/50/200), golden/death
-cross, realized volatility (per-bar stdev + annualized to the bar interval,
-factor shown). No interpretive tier labels; the model owns interpretation.
+`bars[*]` is the stable chaining surface (`prev:<id>.bars[*].adj_close` into
+compute tools). Each bar's `close` is the price as traded (Yahoo adjusts it for
+splits only); `adj_close` is also adjusted for dividends. Quoted prices are
+as traded; the technicals run on `adj_close`, so a dividend's price drop isn't
+read as a loss. Derived measures are named canon only — SMA(20/50/200),
+golden/death cross, realized volatility (per-bar stdev + annualized to the bar
+interval, factor shown). No interpretive tier labels; the model owns
+interpretation.
 """
 
 from __future__ import annotations
@@ -27,8 +31,10 @@ _RECENT_ROWS = 8
 _DESCRIPTION = (
     "OHLCV price history for a public equity plus derived technicals:"
     " SMA(20/50/200), golden/death cross, realized volatility (annualized to the"
-    " bar interval), and the period high/low range. Exposes bars[*] for chaining"
-    " price series into compute tools."
+    " bar interval), and the period high/low range. Each bar has close (the"
+    " price as traded, adjusted for splits only) and adj_close (also adjusted"
+    " for dividends): quote close for a price on a date, and chain"
+    " bars[*].adj_close into return-based compute tools."
 )
 
 
@@ -110,18 +116,19 @@ def _last_cross(closes):
 
 def _build(ticker, rows, interval):
   closes = [r["close"] for r in rows]
+  adj = [r["adj_close"] for r in rows]
   bars_per_year = _BARS_PER_YEAR.get(interval, 252)
-  per_bar, annualized = _realized_vol(closes, bars_per_year)
+  per_bar, annualized = _realized_vol(adj, bars_per_year)
   structured = {
       "ticker": ticker,
       "bars": rows,
       "current": closes[-1],
       "sma": {
-          "20": _sma_last(closes, 20),
-          "50": _sma_last(closes, 50),
-          "200": _sma_last(closes, 200),
+          "20": _sma_last(adj, 20),
+          "50": _sma_last(adj, 50),
+          "200": _sma_last(adj, 200),
       },
-      "last_cross": _last_cross(closes),
+      "last_cross": _last_cross(adj),
       "realized_vol": {
           "per_bar": per_bar,
           "annualized": annualized,
@@ -133,7 +140,8 @@ def _build(ticker, rows, interval):
   }
   sma = structured["sma"]
   recent = "\n".join(
-      f"  {r['date']}: {num(r['close'])}" for r in rows[-_RECENT_ROWS:]
+      f"  {r['date']}: {num(r['close'])} (adj {num(r['adj_close'])})"
+      for r in rows[-_RECENT_ROWS:]
   )
   cross = f" · {structured['last_cross']} cross" if structured["last_cross"] else ""
   md = (
@@ -143,7 +151,7 @@ def _build(ticker, rows, interval):
       f" vol: per-bar {num(per_bar, 4)}, annualized {num(annualized, 3)}"
       f" (×√{bars_per_year}) · range"
       f" {num(structured['low'])}–{num(structured['high'])}\nRecent"
-      f" closes:\n{recent}"
+      f" closes as traded (dividend-adjusted):\n{recent}"
   )
   return ToolResponse(
       markdown=md, structured=structured, meta={"provider": PROVIDER}
@@ -156,13 +164,18 @@ async def _handler(req):
   ticker = req.ticker.upper()
 
   def _sync():
-    h = yf.Ticker(ticker).history(period=req.period, interval=req.interval)
+    # auto_adjust=False keeps Close as traded and adds Adj Close; yfinance's
+    # default rewrites Close with dividend-adjusted values.
+    h = yf.Ticker(ticker).history(
+        period=req.period, interval=req.interval, auto_adjust=False
+    )
     rows: list[dict[str, Any]] = []
     for idx, row in h.iterrows():
       # yfinance emits NaN-filled bars (halts, sparse intervals); skip them so
       # int(NaN) can't crash and NaN can't poison technicals / the payload.
       if not all(
-          is_num(row[c]) for c in ("Open", "High", "Low", "Close", "Volume")
+          is_num(row[c])
+          for c in ("Open", "High", "Low", "Close", "Adj Close", "Volume")
       ):
         continue
       rows.append({
@@ -171,6 +184,7 @@ async def _handler(req):
           "high": round(float(row["High"]), 4),
           "low": round(float(row["Low"]), 4),
           "close": round(float(row["Close"]), 4),
+          "adj_close": round(float(row["Adj Close"]), 4),
           "volume": int(row["Volume"]),
       })
     return rows

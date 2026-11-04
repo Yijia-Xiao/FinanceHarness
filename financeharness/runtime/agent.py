@@ -24,6 +24,7 @@ from financeharness.runtime.config import load_runtime_config
 from financeharness.runtime.context_budget import over_budget
 from financeharness.runtime.dispatch import dispatch_json_args
 from financeharness.runtime.prompts import (
+  EMPTY_REPLY_PROMPT,
   GROUNDING_REVIEW_PROMPT,
   PROMPT_VARIANTS,
   build_system_prompt,
@@ -322,6 +323,7 @@ class Agent:
     limits = self.config.limits
     t0 = time.monotonic()
     rounds = 0
+    empty_replies = 0
     termination = "error"
     prediction = ""
     grounding_reviewed = False
@@ -390,13 +392,24 @@ class Agent:
           )
         continue
 
-      # No tool calls → the model is answering.
+      # No tool calls → the model is answering. A blank reply isn't an answer:
+      # ask again, and if it stays blank, end as "empty_answer", not "answer".
+      if (
+          response.finish_reason == "stop"
+          and not response.content.strip()
+          and empty_replies < limits.max_empty_reply_retries
+      ):
+        empty_replies += 1
+        messages.append({"role": "user", "content": EMPTY_REPLY_PROMPT})
+        continue
       prediction = response.content
       termination = (
           "answer"
           if response.finish_reason == "stop"
           else (response.finish_reason or "error")
       )
+      if termination == "answer" and not prediction.strip():
+        termination = "empty_answer"
       # Ground only a report that did research — a no-tool answer (a meta/"what
       # can you do" question, or a pure-knowledge reply) has nothing to ground
       # against, and the review would clobber it.
