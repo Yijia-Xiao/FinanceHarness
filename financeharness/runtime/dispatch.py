@@ -129,34 +129,44 @@ async def dispatch(
         "unknown_tool",
     )
 
-  # 1. Argument coercion (schema-driven; repairs stringified containers and
-  #    wrapped lone refs). Runs before validation.
-  coerced = coerce_stringified_json(args, spec.request_schema)
-  coerced = coerce_wrapped_ref(coerced, spec.request_schema)
+  # Steps 1 and 2 run model-written input through repair and path code; any
+  # unexpected error there is returned to the model, never raised.
+  try:
+    # 1. Argument coercion (schema-driven; repairs stringified containers and
+    #    wrapped lone refs). Runs before validation.
+    coerced = coerce_stringified_json(args, spec.request_schema)
+    coerced = coerce_wrapped_ref(coerced, spec.request_schema)
 
-  # 2. Reference-chaining: resolve prev:<call_id>.<path> against prior
-  #    structured payloads, before validation, so the schema sees real values.
-  if session_state is not None:
-    resolved, chain_errors = resolve_references(
-        coerced, session_state.tool_results
-    )
-    if chain_errors:
-      return DispatchResult(
-          name=name,
-          args=args,
-          ok=False,
-          markdown=format_chain_errors(chain_errors),
-          structured={
-              "error": "chain_resolution",
-              "failures": [
-                  {"reference": e.reference, "reason": e.reason}
-                  for e in chain_errors
-              ],
-          },
-          meta={},
+    # 2. Reference-chaining: resolve prev:<call_id>.<path> against prior
+    #    structured payloads, before validation, so the schema sees real values.
+    if session_state is not None:
+      resolved, chain_errors = resolve_references(
+          coerced, session_state.tool_results
       )
-  else:
-    resolved = coerced
+      if chain_errors:
+        return DispatchResult(
+            name=name,
+            args=args,
+            ok=False,
+            markdown=format_chain_errors(chain_errors),
+            structured={
+                "error": "chain_resolution",
+                "failures": [
+                    {"reference": e.reference, "reason": e.reason}
+                    for e in chain_errors
+                ],
+            },
+            meta={},
+        )
+    else:
+      resolved = coerced
+  except Exception as err:  # noqa: BLE001
+    return _error_result(
+        name,
+        args,
+        f"could not prepare the arguments: {type(err).__name__}: {err}",
+        "argument_error",
+    )
 
   # 3. Schema validation.
   try:
@@ -232,7 +242,7 @@ async def dispatch_json_args(
   """
   try:
     args = json.loads(args_json) if args_json else {}
-  except json.JSONDecodeError as err:
+  except (ValueError, RecursionError) as err:
     return _error_result(
         name,
         {"_raw": args_json},

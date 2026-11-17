@@ -1,5 +1,7 @@
 """Tool dispatch: argument repair, prev: reference resolution, validation, error mapping."""
 
+import sys
+
 import pytest
 from pydantic import BaseModel
 
@@ -209,6 +211,35 @@ def test_malformed_index_in_a_reference_is_reported_not_raised(registry, state):
   result = run(dispatch("series", args, registry=registry, session_state=state))
   assert not result.ok
   assert result.structured["error"] == "chain_resolution"
+
+
+def test_unexpected_error_while_preparing_arguments_is_reported_not_raised(
+    registry, state, series_handler, monkeypatch
+):
+  def broken(args, tool_results):
+    raise RuntimeError("boom")
+
+  module = sys.modules["financeharness.runtime.dispatch"]
+  monkeypatch.setattr(module, "resolve_references", broken)
+  args = {"values": "prev:p1.bars[*].close"}
+  result = run(dispatch("series", args, registry=registry, session_state=state))
+  assert not result.ok
+  assert result.structured == {"error": "argument_error"}
+  assert "RuntimeError: boom" in result.markdown
+  assert result.args == args
+  assert series_handler.calls == 0
+
+
+@pytest.mark.parametrize("args_json", ["[1, 2]", '"text"', "7", "null"])
+def test_arguments_that_are_not_a_json_object_are_reported_not_raised(registry, state, args_json):
+  result = run(dispatch_json_args("series", args_json, registry=registry, session_state=state))
+  assert result.structured["error"] in {"schema_validation", "argument_error"}
+
+
+def test_arguments_nested_too_deeply_to_parse_are_reported_not_raised(registry, state):
+  args_json = '{"values": ' + "[" * 100_000 + "]" * 100_000 + "}"
+  result = run(dispatch_json_args("series", args_json, registry=registry, session_state=state))
+  assert result.structured == {"error": "args_not_json"}
 
 
 def test_result_of_one_call_feeds_a_compute_tool(registry):
