@@ -1,4 +1,4 @@
-"""The agent loop — the orchestrator.
+"""The agent loop: the orchestrator.
 
 One bounded loop: call the model with the visible tool schemas → if it emits
 tool_calls, dispatch each and append the results → repeat until the model stops
@@ -51,21 +51,19 @@ def _tool_args(raw):
 _UI_RESULT_BUDGET = (
     600  # chars of a data/compute result surfaced to the UI trace
 )
-_CALL_ID_FOOTER = (  # the chaining hint appended for the model — not for the UI
+_CALL_ID_FOOTER = (  # the chaining hint appended for the model, not for the UI
     "\n\n_call_id:"
 )
 
 
 def _ui_tool_result(name, result):
-  """The grounding data behind a tool call, surfaced to the UI trace so a reader can
+  """The grounding data behind a tool call, surfaced to the UI trace.
 
-  audit the numbers a report rests on. Only the data/compute tools (the fetched
-  or
-  computed figures that are otherwise invisible) — web evidence already lives in
-  the
-  Sources rail, and ``calc``/orchestration carry nothing to audit. The chaining
-  footer is dropped and the body truncated; ``None`` when there's nothing to
-  show.
+  Lets a reader audit the numbers a report rests on. Only the data/compute tools
+  qualify (the fetched or computed figures that are otherwise invisible). Web
+  evidence already lives in the Sources rail, and ``calc``/orchestration carry
+  nothing to audit. The chaining footer is dropped and the body truncated;
+  ``None`` when there's nothing to show.
   """
   if not result.ok or not name.startswith(("data_", "compute_")):
     return None
@@ -142,15 +140,15 @@ class Agent:
     self._system_prompt_override = system_prompt
     self.skill_registry = skill_registry
     # When True, model calls stream and their content deltas are surfaced as
-    # ``token`` events (the report fills live). Off by default so the sync /
-    # eval paths issue one non-streaming call as before.
+    # ``token`` events (the report fills live). Off by default: the sync path
+    # issues one non-streaming call.
     self.stream_tokens = stream_tokens
     # Optional post-processor applied to the final prediction at the single
     # exit (research wiring passes citation post-processing). Keeps the loop
     # itself citation-agnostic.
     self._finalize = finalize
     # When True, after the draft the backbone makes one principle-based pass over
-    # its own report — re-reading it against the sources already in context and
+    # its own report, re-reading it against the sources already in context and
     # revising any specific claim it can't ground. The model owns its numbers, so
     # tool-derived figures stay intact (no machinery, no string surgery).
     self._grounding_review = grounding_review
@@ -166,11 +164,11 @@ class Agent:
       max_tokens,
       emit,
   ):
-    """Issue a single model call through the provider — streaming (content /
+    """Issue a single model call through the provider.
 
-    reasoning deltas → ``token`` / ``reasoning`` events) when enabled, else one
-    non-streaming call. Both return the same :class:`AssistantTurn`, so recovery
-    treats them identically.
+    Streaming (content / reasoning deltas → ``token`` / ``reasoning`` events)
+    when enabled, else one non-streaming call. Both return the same
+    :class:`AssistantTurn`, so recovery treats them identically.
     """
     on_delta: Callable[[str, str], None] | None = None
     if self.stream_tokens:
@@ -234,7 +232,7 @@ class Agent:
             self._issue(work, tools or None, max_tokens, emit),
             cfg.limits.per_call_timeout_s,  # a hung model call must not block forever
         )
-      except Exception as err:  # noqa: BLE001 — classify then act (TimeoutError → BACKOFF)
+      except Exception as err:  # noqa: BLE001 (classify then act: TimeoutError → BACKOFF)
         action = recovery.classify_model_error(err)
         if action == recovery.BACKOFF:
           if transient >= cfg.limits.max_transient_retries:
@@ -284,12 +282,12 @@ class Agent:
   async def _redecode(
       self, messages, work
   ):
-    """Re-decode ``work`` in one no-tools backbone pass and, on a non-empty
+    """Re-decode ``work`` in one no-tools backbone pass.
 
-    result, commit a clean transcript — the prior turns plus the rewrite, with
-    the scaffolding dropped (``messages`` is mutated in place). Best-effort: any
-    failure returns None and the caller keeps the draft. The single re-decode
-    primitive behind the grounding-review pass.
+    On a non-empty result, commit a clean transcript: the prior turns plus the
+    rewrite, with the scaffolding dropped (``messages`` is mutated in place).
+    Best-effort: any failure returns None and the caller keeps the draft. The
+    single re-decode primitive behind the grounding-review pass.
 
     Non-streaming on purpose: the authoritative `answer`/`done` payload carries
     the rewrite, so we don't re-stream the body.
@@ -298,7 +296,7 @@ class Agent:
       response = await self.provider.generate(
           work, tools=None, max_tokens=self.config.generation.max_tokens
       )
-    except Exception:  # noqa: BLE001 — best-effort; keep the draft
+    except Exception:  # noqa: BLE001 (best-effort; keep the draft)
       return None
     new = response.content.strip()
     if not new:
@@ -309,13 +307,12 @@ class Agent:
   async def _maybe_review_grounding(
       self, messages, emit
   ):
-    """One backbone pass to ground the draft against the sources already in the
+    """One backbone pass to ground the draft against the sources in the conversation.
 
-    conversation. The model re-reads its own report and revises any specific
-    claim it can't tie to something it actually read — attributing or softening
-    it. Because the same model that wrote the figures reviews them, tool-derived
-    numbers it understands stay intact. Best-effort: any failure keeps the
-    draft.
+    The model re-reads its own report and revises any specific claim it can't
+    tie to something it actually read, attributing or softening it. Because the
+    same model that wrote the figures reviews them, tool-derived numbers it
+    understands stay intact. Best-effort: any failure keeps the draft.
     """
     emit("phase", {"label": "grounding"})
     work = messages + [{"role": "user", "content": GROUNDING_REVIEW_PROMPT}]
@@ -354,7 +351,7 @@ class Agent:
     """Run the loop to completion and return the trajectory dict.
 
     ``history`` is prior-turn messages (system already stripped) threaded
-    before the new question — for multi-turn sessions.
+    before the new question, for multi-turn sessions.
     """
     emit = on_event or (lambda _k, _d: None)
     session_state = ToolSessionState()
@@ -477,7 +474,7 @@ class Agent:
       if termination == "error":
         error = "the model returned no output (an empty or blocked response)"
         emit("error", {"error": error})
-      # Ground only a report that did research — a no-tool answer (a meta/"what
+      # Ground only a report that did research: a no-tool answer (a meta/"what
       # can you do" question, or a pure-knowledge reply) has nothing to ground
       # against, and the review would clobber it.
       if (
@@ -520,9 +517,9 @@ class Agent:
       error,
       emit,
   ):
-    """The single exit point — assemble the trajectory, applying the
+    """The single exit point: assemble the trajectory.
 
-    finalize hook (citation post-processing) when present.
+    Applies the finalize hook (citation post-processing) when present.
     """
     citation_stats: dict[str, Any] = {}
     if self._finalize is not None and prediction:

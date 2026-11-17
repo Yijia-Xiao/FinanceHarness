@@ -1,6 +1,7 @@
-"""Runtime configuration — one source of truth for the generation budget, run
+"""Runtime configuration.
 
-limits, error-recovery policy, and reader params.
+One source of truth for the generation budget, run limits, error-recovery
+policy, and reader params.
 
 The defaults are the field defaults of the models below. The user's
 ``runtime.json`` (see ``financeharness/paths.py``), programmatic ``overrides``

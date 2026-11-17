@@ -2,7 +2,7 @@
 
 Wraps an async-callable factory; absorbs transient failures (timeouts, transport
 blips, rate limits, transient 5xx) before they reach the LLM. Actionable errors
-(bad ticker, schema mismatch, auth) bubble through immediately — the model is
+(bad ticker, schema mismatch, auth) bubble through immediately: the model is
 good at recovering from those and bad at understanding "the harness retried".
 """
 
@@ -20,13 +20,11 @@ class RetryableError(Exception):
 
 
 def status_of(err: BaseException) -> int | None:
-  """HTTP status from an SDK exception, across provider shapes: OpenAI/httpx on
+  """HTTP status from an SDK exception, across provider shapes.
 
-  ``.status_code``, requests on ``.status``, google-genai/gRPC on ``.code``
-  (where
-  ``.status`` is the string name). First integer wins — a new backbone slots in
-  by
-  error shape here, never a per-provider branch elsewhere.
+  OpenAI/httpx on ``.status_code``, requests on ``.status``, google-genai/gRPC
+  on ``.code`` (where ``.status`` is the string name). First integer wins: a new
+  backbone slots in by error shape here, never a per-provider branch elsewhere.
   """
   for attr in ("status_code", "status", "code"):
     value = getattr(err, attr, None)

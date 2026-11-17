@@ -1,16 +1,15 @@
-"""Tool registry — the tool contract, registration, and per-run session state.
+"""Tool registry: the tool contract, registration, and per-run session state.
 
 A tool is a :class:`ToolSpec`: a name, a Pydantic request schema, an async
 handler, and a tier. **Core** tools are always visible to the model;
-**deferred**
-tools appear only in a catalog until ``load_tool`` pulls their schema (the
-two-tier disclosure / ToolSearch pattern).
+**deferred** tools appear only in a catalog until ``load_tool`` pulls their
+schema (two-tier disclosure).
 
 Naming: a dotted display path (``data.equity.reference``) maps to an underscored
 wire name (``data_equity_reference``) because the OpenAI function-name regex
 forbids dots. The registry stores the wire form.
 
-Registries here are explicit objects passed to dispatch — fresh per request,
+Registries here are explicit objects passed to dispatch: fresh per request,
 no global mutable state.
 """
 
@@ -31,15 +30,13 @@ _MIN_DESCRIPTION_CHARS = 30
 
 
 class ToolError(Exception):
-  """An *expected*, actionable tool failure — no usable data, the provider is
+  """An *expected*, actionable tool failure.
 
-  unavailable, or the input can't be served. The dispatcher renders it as a
-  clean
-  ``ok=False`` result (the message verbatim, no exception-type prefix); the
-  model
-  reads the message and adjusts. Distinct from an unexpected bug (which surfaces
-  as
-  ``handler_exception``). The single convention for "the tool couldn't deliver."
+  No usable data, the provider is unavailable, or the input can't be served. The
+  dispatcher renders it as a clean ``ok=False`` result (the message verbatim, no
+  exception-type prefix); the model reads the message and adjusts. Distinct from
+  an unexpected bug (which surfaces as ``handler_exception``). The single
+  convention for "the tool couldn't deliver."
   """
 
 
@@ -79,7 +76,7 @@ class ToolSpec:
   def __post_init__(self):
     if not _NAME_RE.match(self.name):
       raise ValueError(
-          f"Tool name {self.name!r} violates {_NAME_RE.pattern} — "
+          f"Tool name {self.name!r} violates {_NAME_RE.pattern}: "
           "use underscores not dots on the wire."
       )
     if len(self.description) < _MIN_DESCRIPTION_CHARS:
@@ -119,7 +116,7 @@ class ToolRegistry:
     self._tools[spec.name] = spec
 
   def clone(self):
-    """A shallow copy — same specs, independent dict.
+    """A shallow copy: same specs, independent dict.
 
     Lets a run add per-run meta-tools without mutating a shared base registry.
     """
@@ -131,7 +128,7 @@ class ToolRegistry:
     """Look up by wire name; fall back to the underscored variant when the
 
     model emits the dotted display form (a known open-weight-model quirk).
-    Collision-safe — no registered name contains a dot.
+    Collision-safe: no registered name contains a dot.
     """
     spec = self._tools.get(name)
     if spec is None and "." in name:
@@ -158,7 +155,7 @@ class ToolSessionState:
   """Per-run state: which deferred tools have been loaded, and the structured
 
   payload of every successful prior call (the source for ``prev:`` chaining).
-  Fresh per agent loop — keeps each run's chain space isolated.
+  Fresh per agent loop, which keeps each run's chain space isolated.
   """
 
   loaded_deferred: set[str] = field(default_factory=set)

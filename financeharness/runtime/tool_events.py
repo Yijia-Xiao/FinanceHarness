@@ -1,7 +1,8 @@
-"""Tool-side progress events — a context-scoped channel so a running tool can
+"""Tool-side progress events.
 
-surface live sub-status (e.g. ``visit`` fetching/reading each URL) without
-threading an emitter through every handler signature.
+A context-scoped channel so a running tool can surface live sub-status (e.g.
+``visit`` fetching/reading each URL) without threading an emitter through every
+handler signature.
 
 The dispatcher opens a :func:`tool_event_scope` around the handler; inside the
 handler, :func:`emit_tool_progress` posts a ``tool_progress`` event for the

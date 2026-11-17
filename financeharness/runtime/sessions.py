@@ -1,9 +1,9 @@
-"""Conversational sessions — pure helpers for multi-turn threading.
+"""Conversational sessions: pure helpers for multi-turn threading.
 
 A session threads several runs: each turn is seeded with the prior turns'
-messages (system stripped — the new run supplies a fresh system prompt), so a
+messages (system stripped: the new run supplies a fresh system prompt), so a
 follow-up is grounded in what earlier turns fetched. A turn is committed to the
-session only when it cleanly answered — the **no-poison-on-error** guard, so a
+session only when it cleanly answered (the **no-poison-on-error** guard), so a
 failed/aborted turn never corrupts the thread and a retry starts clean.
 
 Storage is the caller's concern (the service uses a file-backed
@@ -20,5 +20,5 @@ def strip_system(messages):
 
 
 def is_committable(termination):
-  """True only for a cleanly-answered turn — the no-poison-on-error guard."""
+  """True only for a cleanly-answered turn (the no-poison-on-error guard)."""
   return termination == "answer"

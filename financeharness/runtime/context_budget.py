@@ -1,4 +1,4 @@
-"""Context-budget accounting — pure token estimation + the compaction trigger.
+"""Context-budget accounting: pure token estimation + the compaction trigger.
 
 The loop should compact the prompt *before* it overflows, not only react to a
 400. This is the pure decision layer (no I/O): estimate a message list's token
