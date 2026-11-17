@@ -107,5 +107,5 @@ def save_trajectory(traj, path):
   """Write a trajectory to JSON (parents created)."""
   p = Path(path)
   p.parent.mkdir(parents=True, exist_ok=True)
-  p.write_text(json.dumps(traj, indent=2, ensure_ascii=False))
+  p.write_text(json.dumps(traj, indent=2, ensure_ascii=False), encoding="utf-8")
   return p
