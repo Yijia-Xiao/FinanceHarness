@@ -78,7 +78,6 @@ def test_report_without_sources_gets_no_references_and_no_markers():
   assert stats["n_orphans_stripped"] == 1
 
 
-@pytest.mark.xfail(strict=True, reason="leaked end-of-report notes are only partly removed")
 def test_leaked_end_of_report_note_is_removed(cache):
   report = (
       "Revenue rose [1].\n\n"
@@ -88,9 +87,6 @@ def test_leaked_end_of_report_note_is_removed(cache):
   assert text == "Revenue rose [1].\n\n" + REFERENCES
 
 
-@pytest.mark.xfail(
-    strict=False, reason="text after a line reading only References is cut from the report"
-)
 def test_sections_after_a_line_reading_references_are_kept(cache):
   report = (
       "Revenue rose [1].\n\n"
@@ -99,6 +95,55 @@ def test_sections_after_a_line_reading_references_are_kept(cache):
   )
   text, _ = validate_and_append_references(report, cache.citations)
   assert "## Outlook\n\nManagement expects growth to continue." in text
+
+
+def test_text_after_a_leaked_end_of_report_note_is_kept(cache):
+  report = (
+      "Revenue rose [1].\n"
+      "[End of output. The system appends references.]\n\n"
+      "## Outlook\n\nGrowth continues."
+  )
+  text, _ = validate_and_append_references(report, cache.citations)
+  assert text.startswith("Revenue rose [1].\n\n## Outlook\n\nGrowth continues.\n")
+
+
+def test_sentence_that_resembles_the_end_note_is_kept(cache):
+  report = "At the end of report. The appendix appends the references list here [1]."
+  text, _ = validate_and_append_references(report, cache.citations)
+  assert text.startswith(report + "\n")
+
+
+@pytest.mark.parametrize(
+    "listing",
+    [
+        "[1] Annual report\n[2] Earnings call",
+        "1. Annual report\n2. Earnings call",
+        "- Annual report\n- Earnings call",
+        "https://example.com/10k",
+    ],
+)
+def test_bare_references_line_followed_by_a_list_is_replaced(cache, listing):
+  text, _ = validate_and_append_references(
+      "Revenue rose [1].\n\nReferences\n" + listing, cache.citations
+  )
+  assert text == "Revenue rose [1].\n\n" + REFERENCES
+
+
+def test_markers_attached_to_a_word_are_checked(cache):
+  text, stats = validate_and_append_references(
+      "Margin[2,9] widened and revenue rose[1][7].", cache.citations
+  )
+  assert text.startswith("Margin[2] widened and revenue rose[1].\n")
+  assert stats["cited_indices"] == [1, 2]
+  assert stats["n_orphans_stripped"] == 2
+
+
+def test_bracketed_numbers_inside_code_are_left_alone(cache):
+  report = "Take `bars[0]` first [1], drop [5].\n\n```\nrows[3] = rows[0]\n```"
+  text, stats = validate_and_append_references(report, cache.citations)
+  assert text.startswith("Take `bars[0]` first [1], drop.\n\n```\nrows[3] = rows[0]\n```\n")
+  assert stats["cited_indices"] == [1]
+  assert stats["n_orphans_stripped"] == 1
 
 
 def test_finalizer_reads_the_sources_known_at_the_end_of_the_run():

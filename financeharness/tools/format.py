@@ -13,7 +13,7 @@ import math
 
 
 def _is_real(v):
-  """A real, finite number — excludes None, NaN, infinity, and bools."""
+  """A real, finite number: excludes None, NaN, infinity and bools."""
   if isinstance(v, bool) or not isinstance(v, int | float):
     return False
   try:

@@ -69,12 +69,10 @@ def compute_var(
   """
   rets = pct_returns(prices)
   if not rets:
-    # pct_returns skips any observation whose prior is zero, so a series that
-    # passes min_length can still yield nothing to measure. Raise the tool's
-    # own error type rather than letting _percentile IndexError out of here.
+    # pct_returns skips observations whose prior price is zero
     raise ToolError(
-        "no usable returns in the price series — every observation is preceded"
-        " by a zero price, so no period-over-period change can be computed"
+        "no usable returns in the price series: every observation follows a"
+        " zero price, so no period-over-period change can be computed"
     )
   scale = horizon**0.5
   tail = 1 - confidence

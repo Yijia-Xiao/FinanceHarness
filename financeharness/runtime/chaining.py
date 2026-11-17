@@ -54,13 +54,7 @@ class _ParsedRef:
 
 
 def _as_int(tok):
-  """Parse an integer path token, or ``None`` when it is not one.
-
-  ``str.isdigit()`` is not a test for ``int()``-parseability: it is true for
-  characters ``int()`` rejects (``'²'``), ``lstrip('-')`` hides repeated signs
-  (``'--5'``), and a long enough digit run trips CPython's int/str conversion
-  limit. All three reach ``int()`` as a ValueError, so parse defensively.
-  """
+  """Parse an integer path token, or ``None`` when ``int()`` rejects it."""
   try:
     return int(tok)
   except ValueError:

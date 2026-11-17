@@ -88,10 +88,32 @@ def test_calc_tool_turns_a_bad_expression_into_a_tool_error(registry):
   assert "division by zero" in result.markdown
 
 
-@pytest.mark.xfail(strict=False, reason="chained powers bypass the calc exponent limit")
 def test_calc_refuses_chained_powers_that_exceed_the_exponent_limit():
   with pytest.raises(ToolError):
     safe_eval("(10 ** 1000) ** 1000")
+
+
+@pytest.mark.parametrize(
+    "expression",
+    ["(2 ** 1000) ** 16", "(2 ** 1000) ** 9", " * ".join(["2 ** 1000"] * 9)],
+)
+def test_calc_refuses_integer_results_beyond_the_size_limit(expression):
+  with pytest.raises(ToolError, match="result too large"):
+    safe_eval(expression)
+
+
+def test_calc_integer_limit_is_8192_bits():
+  assert safe_eval("(2 ** 1000) ** 8 * 2 ** 191").bit_length() == 8192
+  with pytest.raises(ToolError, match="result too large"):
+    safe_eval("(2 ** 1000) ** 8 * 2 ** 192")
+
+
+def test_calc_shows_and_saves_the_largest_integers_it_accepts(registry):
+  result = call(registry, "calc", expression="(2 ** 1000) ** 8")
+  assert result.ok
+  assert result.structured["result"] == 2**8000
+  assert str(2**8000) in result.markdown
+  json.dumps(result.to_log())
 
 
 @pytest.mark.xfail(
@@ -317,9 +339,6 @@ def test_var_is_zero_when_the_tail_is_a_gain(registry):
   assert out["historical_var_pct"] == 0.0
 
 
-@pytest.mark.xfail(
-    strict=False, reason="VaR on prices with no usable return fails with an internal error"
-)
 def test_var_without_any_usable_return_is_an_input_error(registry):
   result = call(registry, "compute_risk_var", prices=[0, 0, 0, 0, 0])
   assert not result.ok

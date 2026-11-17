@@ -13,28 +13,36 @@ from __future__ import annotations
 
 import re
 
-# Strip any model-written reference section (h2/h3 / bold / bare line).
-# The bare-line form additionally requires the next line to look like a
-# bibliography entry, so a hard-wrapped sentence whose line happens to be the
-# single word "References" does not truncate the report at that point.
+# A model-written reference section: a heading, a bold label, or a bare
+# "References" line followed by a list entry. A bare line followed by prose is
+# part of the report.
 _REF_SECTION_RE = re.compile(
     r"\n+(?:##+\s*references\b"
     r"|\*\*\s*references\s*\*\*"
-    r"|references:?[ \t]*\n(?=\s*(?:\[\d|https?://)))",
+    r"|references:?[ \t]*\n(?=\s*(?:\[\d|https?://|\d+[.)]\s|[-*+]\s)))",
     flags=re.IGNORECASE,
 )
-# Strip leaked "[End of output … appends … references …]" template markers.
+# A leaked "[End of report. ... appends ... References ...]" template note on
+# a line of its own, removed with the line.
 _EOM_LEAK_RE = re.compile(
-    r"\n*\[?\s*End of (?:your )?(?:output|report)\."
-    r"[^\]\n]*?(?:appends?)[^\]\n]*?references[^\]\n]*?\]?\s*",
-    flags=re.IGNORECASE,
+    r"^[ \t]*\[?[ \t]*End of (?:your )?(?:output|report)\."
+    r"[^\]\n]*?(?:appends?)[^\]\n]*?references[^\]\n]*\]?[ \t]*\n?",
+    flags=re.IGNORECASE | re.MULTILINE,
 )
-# A citation marker never directly follows a word character or a closing
-# bracket; requiring that keeps subscript notation (``arr[0]``, ``x[1][2]``)
-# out of the orphan sweep below.
-_BRACKET_RE = re.compile(
-    r"(?P<lead>\s*)(?<![\w\]])\[(?P<digits>\d+(?:\s*,\s*\d+)*)\]"
-)
+_BRACKET_RE = re.compile(r"(?P<lead>\s*)\[(?P<digits>\d+(?:\s*,\s*\d+)*)\]")
+# Fenced blocks and inline code spans: bracketed numbers inside them are code
+# (``arr[0]``), not citation markers.
+_CODE_RE = re.compile(r"```.*?```|`[^`\n]+`", flags=re.DOTALL)
+
+
+def _markers(body):
+  """Citation marker matches in ``body`` outside code."""
+  code = [m.span() for m in _CODE_RE.finditer(body)]
+  return [
+      m
+      for m in _BRACKET_RE.finditer(body)
+      if not any(start <= m.start("digits") < end for start, end in code)
+  ]
 
 
 def format_references_block(citations):
@@ -58,11 +66,11 @@ def validate_and_append_references(
   """
   m = _REF_SECTION_RE.search(prediction)
   body = (prediction[: m.start()] if m else prediction).rstrip()
-  body = _EOM_LEAK_RE.sub("\n", body).rstrip()
+  body = _EOM_LEAK_RE.sub("", body).rstrip()
 
   n_refs = len(citations)
   cited: set[int] = set()
-  for match in _BRACKET_RE.finditer(body):
+  for match in _markers(body):
     for n in match.group("digits").split(","):
       with_int = n.strip()
       if with_int.isdigit():
@@ -72,17 +80,20 @@ def validate_and_append_references(
   valid_cited = sorted(n for n in cited if 1 <= n <= n_refs)
 
   if detected_orphans:
-
-    def _filter(match):
-      lead = match.group("lead")
+    parts: list[str] = []
+    pos = 0
+    for match in _markers(body):
       nums = [
           d.strip()
           for d in match.group("digits").split(",")
-          if d.strip().isdigit() and 1 <= int(d.strip()) <= n_refs
+          if 1 <= int(d.strip()) <= n_refs
       ]
-      return f"{lead}[{', '.join(nums)}]" if nums else ""
-
-    body = _BRACKET_RE.sub(_filter, body)
+      parts.append(body[pos : match.start()])
+      if nums:
+        parts.append(f"{match.group('lead')}[{', '.join(nums)}]")
+      pos = match.end()
+    parts.append(body[pos:])
+    body = "".join(parts)
 
   if not citations:
     return body + "\n", {
