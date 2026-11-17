@@ -1,6 +1,6 @@
 ---
 name: consensus-check
-description: Summarize the sell-side view on an equity — analyst price targets, forward EPS/revenue estimates and ratings — and corroborate it against recent guidance and estimate revisions from the web.
+description: Summarize the sell-side view on an equity (analyst price targets, forward EPS/revenue estimates and ratings) and corroborate it against recent guidance and estimate revisions from the web.
 tags: [equity, estimates, consensus, analyst]
 requires_tools:
   - data_equity_estimates
@@ -16,7 +16,7 @@ What the Street expects for a name, and whether recent news supports it.
     (mean/median, range vs current), forward EPS by period (mean, range, analyst
     counts, growth) and revenue by period (mean, growth), and the buy/hold/sell
     spread.
-2.  **Corroborate.** `search` + `visit` recent, authoritative coverage — the
+2.  **Corroborate.** `search` + `visit` recent, authoritative coverage: the
     latest earnings/guidance, notable upgrades/downgrades, and the direction of
     estimate revisions. Ground each specific claim in a page you read.
 3.  **Report.** The consensus expectation and the dispersion (tight vs wide
@@ -25,7 +25,7 @@ What the Street expects for a name, and whether recent news supports it.
 
 ## Principles
 
--   These are *estimates* — present them as consensus expectations, not facts,
+-   These are *estimates*: present them as consensus expectations, not facts,
     and note the dispersion (a wide target range is itself the signal).
 -   Pair the tool's consensus numbers with what changed recently; a stale
     consensus and a fresh guidance cut tell different stories.

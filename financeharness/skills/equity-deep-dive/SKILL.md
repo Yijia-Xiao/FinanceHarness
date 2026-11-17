@@ -1,6 +1,6 @@
 ---
 name: equity-deep-dive
-description: A thorough single-equity deep dive — read the recent qualitative picture from the web, then ground it in fundamentals and health ratios, an intrinsic DCF with a sensitivity range, a comparable-company cross-check, and the analyst-consensus view.
+description: A thorough single-equity deep dive. Read the recent qualitative picture from the web, then ground it in fundamentals and health ratios, an intrinsic DCF with a sensitivity range, a comparable-company cross-check, and the analyst-consensus view.
 tags: [equity, deep-dive, valuation, dcf, comps, consensus]
 requires_tools:
   - data_equity_reference
@@ -17,12 +17,12 @@ requires_tools:
 # Equity deep dive
 
 The full work-up on one name: read the story, then ground it in intrinsic value,
-a relative cross-check, and the consensus view — every claim sourced or
+a relative cross-check, and the consensus view, with every claim sourced or
 tool-grounded.
 
 ## Workflow
 
-1.  **Read the picture.** `search` + `visit` recent, authoritative coverage —
+1.  **Read the picture.** `search` + `visit` recent, authoritative coverage:
     the latest results/guidance, strategy, and the live debate (bull vs bear).
     Ground each qualitative claim in a page you read; this frames what the
     numbers must explain.
@@ -35,11 +35,11 @@ tool-grounded.
     `compute_valuation_dcf`, then `compute_valuation_dcf_sensitivity` for a
     bear/base/bull range.
 5.  **Relative cross-check.** `data_equity_comps` against a peer group you
-    choose — does the relative read agree with the DCF?
+    choose. Does the relative read agree with the DCF?
 6.  **Consensus.** `data_equity_estimates` for price targets, forward
     EPS/revenue, and the rating spread.
 7.  **Synthesize.** A view that ties the qualitative story to intrinsic value,
-    relative value, and consensus — with the discount rate, key assumptions, the
+    relative value, and consensus, with the discount rate, key assumptions, the
     valuation range, and the main risks stated.
 
 ## Principles
@@ -48,7 +48,7 @@ tool-grounded.
     support; attribute web specifics to the page you read, mark anything
     unconfirmed as such.
 -   Triangulate: when the DCF, comps, and consensus disagree, the disagreement
-    is the finding — surface it rather than averaging it away.
+    is the finding: surface it rather than averaging it away.
 -   Every figure from a tool; run the math through the tools so it stays exact
     and auditable. Mark forecasts and analyst estimates as expectations, not
     facts. State how much value rests on the terminal value.
