@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import zoneinfo
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
@@ -42,6 +43,10 @@ _DESCRIPTION = (
 )
 _DAYS_PER_YEAR = 365
 _LISTED_SHOWN = 12
+# The compute.options tools take at most this many strikes per call.
+_MAX_STRIKES = 100
+# US listed options expire on the exchange's calendar date.
+_EXCHANGE_TZ = zoneinfo.ZoneInfo("America/New_York")
 
 # our key -> yfinance option_chain column (numeric fields)
 _FIELDS = {
@@ -83,7 +88,7 @@ class OptionsChainRequest(BaseModel):
   max_strikes: int = Field(
       20,
       ge=1,
-      le=500,
+      le=_MAX_STRIKES,
       description="Keep the N strikes nearest spot for calls and for puts.",
   )
 
@@ -98,10 +103,19 @@ class OptionsChainRequest(BaseModel):
     return v
 
 
+def _exchange_today(now = None):
+  """Today's date on the exchange calendar (``now``: an aware datetime)."""
+  now = now or datetime.datetime.now(datetime.UTC)
+  return now.astimezone(_EXCHANGE_TZ).date()
+
+
 def _pick_expiry(expirations, today, min_days):
-  """First listed expiry at least ``min_days`` out, else the last one listed."""
+  """First listed expiry at least ``min_days`` and one day out, else the last
+
+  one listed (the handler refuses it when it is dated today).
+  """
   for e in expirations:
-    if (datetime.date.fromisoformat(e) - today).days >= min_days:
+    if (datetime.date.fromisoformat(e) - today).days >= max(min_days, 1):
       return e
   return expirations[-1]
 
@@ -202,7 +216,7 @@ async def _handler(req):
         f"no listed options for '{ticker}' — check the ticker (Yahoo covers"
         " mainly US-listed equities, ETFs, and indices)"
     )
-  today = datetime.date.today()
+  today = _exchange_today()
   expiry = req.expiration or _pick_expiry(
       expirations, today, req.min_days_to_expiry
   )
@@ -210,6 +224,16 @@ async def _handler(req):
     raise ToolError(
         f"{expiry} is not a listed {ticker} expiry; listed:"
         f" {', '.join(expirations[:_LISTED_SHOWN])}"
+    )
+  days = (datetime.date.fromisoformat(expiry) - today).days
+  if days < 1:
+    later = [
+        e for e in expirations if datetime.date.fromisoformat(e) > today
+    ]
+    raise ToolError(
+        f"{ticker} {expiry} expires today: no time to expiry is left to"
+        " price. Later expiries:"
+        f" {', '.join(later[:_LISTED_SHOWN]) or 'none listed'}"
     )
 
   chain = await yf_call(lambda: asyncio.to_thread(tk.option_chain, expiry))
@@ -225,14 +249,13 @@ async def _handler(req):
   calls, puts = _rows(chain.calls), _rows(chain.puts)
   if not calls and not puts:
     raise ToolError(f"empty option chain for {ticker} {expiry}")
-  days = (datetime.date.fromisoformat(expiry) - today).days
   structured = {
       "ticker": ticker,
       "spot": spot,
       "expiration": expiry,
       "days_to_expiry": days,
-      # calendar-day basis, to the expiry date (0 on expiry day)
-      "time_to_expiry_years": round(max(days, 0) / _DAYS_PER_YEAR, 6),
+      # calendar-day basis, to the expiry date
+      "time_to_expiry_years": round(days / _DAYS_PER_YEAR, 6),
       "expirations": expirations,
       "n_calls_listed": len(calls),
       "n_puts_listed": len(puts),

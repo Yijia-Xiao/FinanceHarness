@@ -18,6 +18,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 from financeharness.runtime.tool_registry import ToolResponse, ToolSpec
+from financeharness.tools.compute.numeric import Finite
 from financeharness.tools.compute.options.black_scholes import bsm
 from financeharness.tools.format import num, pct
 
@@ -31,6 +32,8 @@ _DESCRIPTION = (
     " bounds (e.g. a stale last trade below intrinsic value)."
 )
 _MAX_STRIKES = 100
+# Bound on spot and strikes, so their ratio stays inside float range.
+_MAX_PRICE = 1e9
 _VOL_LO, _VOL_HI = 1e-6, 5.0
 _VOL_TOL = 1e-8
 _MAX_ITER = 200
@@ -42,14 +45,16 @@ class ImpliedVolRequest(BaseModel):
   option_type: Literal["call", "put"] = Field(
       Ellipsis, description="call or put (applies to every strike)."
   )
-  spot: float = Field(Ellipsis, gt=0, description="Underlying price, e.g. 100.")
-  strikes: list[float] = Field(
+  spot: Finite = Field(
+      Ellipsis, gt=0, le=_MAX_PRICE, description="Underlying price, e.g. 100."
+  )
+  strikes: list[Finite] = Field(
       Ellipsis,
       min_length=1,
       max_length=_MAX_STRIKES,
       description="Strike(s) > 0, e.g. [95, 100, 105].",
   )
-  prices: list[float | None] = Field(
+  prices: list[Finite | None] = Field(
       Ellipsis,
       min_length=1,
       max_length=_MAX_STRIKES,
@@ -81,8 +86,8 @@ class ImpliedVolRequest(BaseModel):
           f"prices ({len(self.prices)}) must match strikes"
           f" ({len(self.strikes)}) one-to-one"
       )
-    if any(k <= 0 for k in self.strikes):
-      raise ValueError("every strike must be > 0")
+    if any(not 0 < k <= _MAX_PRICE for k in self.strikes):
+      raise ValueError(f"every strike must be > 0 and <= {_MAX_PRICE:g}")
     return self
 
 

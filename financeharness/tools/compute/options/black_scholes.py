@@ -21,6 +21,7 @@ import math
 from pydantic import BaseModel, Field, field_validator
 
 from financeharness.runtime.tool_registry import ToolResponse, ToolSpec
+from financeharness.tools.compute.numeric import Finite
 from financeharness.tools.format import num, pct
 
 _DESCRIPTION = (
@@ -34,14 +35,18 @@ _DESCRIPTION = (
     " European exercise only: no early-exercise premium for American options."
 )
 _MAX_STRIKES = 100
+# Bound on spot and strikes, so their ratio stays inside float range.
+_MAX_PRICE = 1e9
 _DAYS_PER_YEAR = 365
 
 
 class BlackScholesRequest(BaseModel):
   """Input for Black-Scholes-Merton pricing at one or more strikes."""
 
-  spot: float = Field(Ellipsis, gt=0, description="Underlying price, e.g. 100.")
-  strikes: list[float] = Field(
+  spot: Finite = Field(
+      Ellipsis, gt=0, le=_MAX_PRICE, description="Underlying price, e.g. 100."
+  )
+  strikes: list[Finite] = Field(
       Ellipsis,
       min_length=1,
       max_length=_MAX_STRIKES,
@@ -69,8 +74,8 @@ class BlackScholesRequest(BaseModel):
   @field_validator("strikes")
   @classmethod
   def _positive_strikes(cls, v):
-    if any(k <= 0 for k in v):
-      raise ValueError("every strike must be > 0")
+    if any(not 0 < k <= _MAX_PRICE for k in v):
+      raise ValueError(f"every strike must be > 0 and <= {_MAX_PRICE:g}")
     return v
 
 
