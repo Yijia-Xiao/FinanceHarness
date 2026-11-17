@@ -187,7 +187,6 @@ def test_rejected_credentials_end_the_run_without_a_retry(tmp_path):
   assert len(client.requests) == 1
 
 
-@pytest.mark.xfail(strict=True, reason="failed model calls do not report their cause")
 def test_failed_model_call_reports_its_cause(tmp_path):
   agent, _ = calc_agent(tmp_path, [ApiError(401, "Incorrect API key provided")])
   errors = []
