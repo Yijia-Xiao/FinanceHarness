@@ -38,13 +38,11 @@ _UNARY_OPS = {ast.UAdd: operator.pos, ast.USub: operator.neg}
 # Bound `**` so a model-emitted `10**10**10` can't build a multi-billion-digit
 # integer and block the event loop (tool handlers run inline in the async loop).
 _MAX_EXPONENT = 1000
-# A per-node exponent cap is not sufficient on its own, because exponents
-# compose: `((10**1000)**1000)**10` keeps every individual exponent inside the
-# cap while the value grows multiplicatively. Bound the size of the *result* as
-# well, so a chain is refused at whichever step first exceeds the budget.
-# 16384 bits is ~4900 digits, comfortably above anything financial arithmetic
-# needs and above what the exponent cap alone already allowed (10**1000).
-_MAX_RESULT_BITS = 16384
+# Exponents compose: `((10**1000)**1000)**10` keeps each exponent inside the cap
+# while the value grows. Integer results are bounded as well. 8192 bits is about
+# 2,466 digits, inside Python's 4,300-digit limit for int to str conversion, so
+# every accepted integer can be shown and saved.
+_MAX_RESULT_BITS = 8192
 _FUNCS = {
     "abs": abs,
     "round": round,
@@ -92,7 +90,13 @@ def _eval(node):
     left, right = _eval(node.left), _eval(node.right)
     if type(node.op) is ast.Pow:
       _check_pow(left, right)
-    return _BIN_OPS[type(node.op)](left, right)
+    value = _BIN_OPS[type(node.op)](left, right)
+    if isinstance(value, int) and value.bit_length() > _MAX_RESULT_BITS:
+      raise ToolError(
+          f"result too large (exceeds {_MAX_RESULT_BITS} bits): refused to"
+          " avoid a runaway computation"
+      )
+    return value
   if isinstance(node, ast.UnaryOp) and type(node.op) in _UNARY_OPS:
     return _UNARY_OPS[type(node.op)](_eval(node.operand))
   if (

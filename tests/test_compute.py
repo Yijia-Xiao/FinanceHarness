@@ -93,6 +93,29 @@ def test_calc_refuses_chained_powers_that_exceed_the_exponent_limit():
     safe_eval("(10 ** 1000) ** 1000")
 
 
+@pytest.mark.parametrize(
+    "expression",
+    ["(2 ** 1000) ** 16", "(2 ** 1000) ** 9", " * ".join(["2 ** 1000"] * 9)],
+)
+def test_calc_refuses_integer_results_beyond_the_size_limit(expression):
+  with pytest.raises(ToolError, match="result too large"):
+    safe_eval(expression)
+
+
+def test_calc_integer_limit_is_8192_bits():
+  assert safe_eval("(2 ** 1000) ** 8 * 2 ** 191").bit_length() == 8192
+  with pytest.raises(ToolError, match="result too large"):
+    safe_eval("(2 ** 1000) ** 8 * 2 ** 192")
+
+
+def test_calc_shows_and_saves_the_largest_integers_it_accepts(registry):
+  result = call(registry, "calc", expression="(2 ** 1000) ** 8")
+  assert result.ok
+  assert result.structured["result"] == 2**8000
+  assert str(2**8000) in result.markdown
+  json.dumps(result.to_log())
+
+
 @pytest.mark.xfail(
     strict=True, reason="calc returns complex numbers, which cannot be saved in a trajectory"
 )
