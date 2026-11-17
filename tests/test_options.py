@@ -1,6 +1,7 @@
 """Option tools: Black-Scholes prices and Greeks, implied volatility, the option chain."""
 
 import datetime
+import json
 import math
 from types import SimpleNamespace
 
@@ -29,7 +30,10 @@ def registry():
 
 
 def call(registry, name, **args):
-  return run(dispatch(name, args, registry=registry))
+  result = run(dispatch(name, args, registry=registry))
+  if result.ok:
+    json.dumps(result.to_log(), allow_nan=False)  # every payload is strict JSON
+  return result
 
 
 def pricing_args(**over):

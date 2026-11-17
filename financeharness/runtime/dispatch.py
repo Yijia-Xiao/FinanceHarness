@@ -10,13 +10,13 @@ self-corrects from on the next turn.
 
 from __future__ import annotations
 
-import json
 import time
 
 from pydantic import ValidationError
 
 from financeharness.runtime.arg_coercion import coerce_stringified_json, coerce_wrapped_ref
 from financeharness.runtime.chaining import format_chain_errors, resolve_references
+from financeharness.runtime.jsonutil import json_safe, loads_strict
 from financeharness.runtime.tool_events import tool_event_scope
 from financeharness.runtime.tool_registry import (
   ToolError,
@@ -210,19 +210,31 @@ async def dispatch(
         elapsed_ms=int((time.time() - t0) * 1000),
     )
 
-  meta = dict(response.meta)
+  # The payload goes into the trajectory, to later calls and to API clients.
+  try:
+    structured = json_safe(response.structured)
+    meta = json_safe(response.meta)
+  except TypeError as err:
+    return _error_result(
+        name,
+        args,
+        f"the tool returned a value that cannot be recorded: {err}",
+        "handler_response_invalid",
+        elapsed_ms=int((time.time() - t0) * 1000),
+    )
+
   meta.setdefault("elapsed_ms", int((time.time() - t0) * 1000))
 
   # Record this call's structured payload so later calls can chain to it.
   if session_state is not None and call_id:
-    session_state.tool_results[call_id] = response.structured
+    session_state.tool_results[call_id] = structured
 
   return DispatchResult(
       name=name,
       args=args,
       ok=True,
       markdown=_append_call_id_footer(response.markdown, call_id),
-      structured=response.structured,
+      structured=structured,
       meta=meta,
   )
 
@@ -241,7 +253,7 @@ async def dispatch_json_args(
   function-calling parser produces).
   """
   try:
-    args = json.loads(args_json) if args_json else {}
+    args = loads_strict(args_json) if args_json else {}
   except (ValueError, RecursionError) as err:
     return _error_result(
         name,
