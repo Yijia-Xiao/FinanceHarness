@@ -1,4 +1,4 @@
-# Python — bytecode, build output, tool caches
+# Python: bytecode, build output, tool caches
 __pycache__/
 *.py[cod]
 *.egg-info/
