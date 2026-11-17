@@ -1,4 +1,4 @@
-"""FinanceHarness — a model-agnostic finance deep-research agent harness.
+"""FinanceHarness: a model-agnostic finance deep-research agent harness.
 
 Modules:
 - providers/  model-agnostic backbone seam (native Gemini + OpenAI-compatible chat)

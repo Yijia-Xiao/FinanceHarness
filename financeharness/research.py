@@ -1,4 +1,4 @@
-"""One-shot research entry point — assemble the harness and run a trajectory.
+"""One-shot research entry point: assemble the harness and run a trajectory.
 
 The canonical "ask a question, get a cited report" helper used by the CLI. The
 full tool registry (web + equity/market data + valuation/risk compute, the
@@ -43,12 +43,12 @@ async def run_research(
   ``profile`` is the orchestrator backbone; ``reader_profile`` is the model
   `visit` uses to read pages (a cloud backbone reads its own pages). ``mode``
   selects the system-prompt variant only: the full tool registry is assembled
-  either way. ``grounding_review`` overrides the
-  self-grounding pass (default: on in research mode) — a comparison seam.
+  either way. ``grounding_review`` overrides the self-grounding pass (default:
+  on in research mode).
   """
   from financeharness.runtime.modes import get_mode, resolve_mode
 
-  # Mode selects the prompt variant only — the tool registry is the same full
+  # Mode selects the prompt variant only. The tool registry is the same full
   # surface for every mode (web visible + equity/valuation deferred-but-callable
   # + skills + load_tool). A consistent toolset means switching mode mid-session
   # never strands the model with history that references a now-missing tool.
@@ -81,7 +81,7 @@ async def run_research(
       finalize=citation_finalizer(cache),
       skill_registry=skill_registry,
       stream_tokens=stream_tokens,
-      # One backbone self-grounding pass over the draft — the model rereads its
+      # One backbone self-grounding pass over the draft: the model rereads its
       # report against the sources it read and grounds any claim it can't support
       # (tool figures it owns stay intact). Research mode only by default: it's a
       # web-research anti-fabrication pass, so auto/analytical skip the extra call.
