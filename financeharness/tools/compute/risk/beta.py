@@ -1,28 +1,38 @@
-"""compute.risk.beta — beta of an asset vs a benchmark, from price series.
+"""compute.risk.beta: beta of an asset against a benchmark, from dated prices.
 
-Pure-math. From an asset price series and a benchmark series (e.g. a stock vs
-data.market.indices' S&P 500), converts to returns, aligns, and computes
-β = cov(asset, bench) / var(bench), plus the correlation and R². A transparent,
-window-explicit beta to complement the static one in data.equity.reference.
+Pure-math. Joins the asset and benchmark series on date, converts the common
+dates to returns, and computes beta = cov(asset, bench) / var(bench), plus the
+correlation and R^2. A window-explicit beta beside the static one in
+data.equity.reference.
 """
 
 from __future__ import annotations
 
 import statistics
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator
 
-from financeharness.runtime.tool_registry import ToolError, ToolResponse, ToolSpec
-from financeharness.tools.compute.numeric import Finite
-from financeharness.tools.compute.risk.returns import align, pct_returns
+from financeharness.runtime.tool_registry import ToolResponse, ToolSpec
+from financeharness.tools.compute.risk.returns import (
+  POINTS_DESCRIPTION,
+  PRICE_FIELD_DESCRIPTION,
+  PriceField,
+  PricePoint,
+  dated_prices,
+  join_on_date,
+  joint_returns,
+  unwrap_series,
+)
 from financeharness.tools.format import num
 
 _DESCRIPTION = (
-    "Beta of an asset vs a benchmark from price series (asset_prices +"
-    " benchmark_prices, e.g. a stock vs an index from data.market.indices)."
-    " Converts to returns, aligns the common window, and returns beta ="
-    " cov/var(benchmark), with correlation and R^2. A window-explicit beta vs"
-    " the static one in reference."
+    "Beta of an asset against a benchmark from two dated price series (asset_prices"
+    " and benchmark_prices, each prev:<call_id>.bars from data_equity_prices, fetched"
+    " with the same period and interval; the benchmark is an index or index"
+    " fund). Joins the series on date, so missing sessions do not shift the"
+    " pairing, and refuses series on different intervals. Returns beta ="
+    " cov/var(benchmark), correlation, R^2, the number of returns used and"
+    " the common date range."
 )
 _MIN_POINTS = 3
 
@@ -30,38 +40,35 @@ _MIN_POINTS = 3
 class BetaRequest(BaseModel):
   """Input for estimating asset beta versus a benchmark series."""
 
-  asset_prices: list[Finite] = Field(
+  asset_prices: list[PricePoint] = Field(
       Ellipsis,
       min_length=_MIN_POINTS,
-      description="Asset price series, e.g. [180, 182, 179, 185].",
+      description=f"Asset series: {POINTS_DESCRIPTION}.",
   )
-  benchmark_prices: list[Finite] = Field(
+  benchmark_prices: list[PricePoint] = Field(
       Ellipsis,
       min_length=_MIN_POINTS,
-      description=(
-          "Benchmark (e.g. index) price series, e.g. [4500, 4520, 4490, 4550]."
-      ),
+      description=f"Benchmark series: {POINTS_DESCRIPTION}.",
+  )
+  price_field: PriceField = Field("adj_close", description=PRICE_FIELD_DESCRIPTION)
+
+  _unwrap = field_validator("asset_prices", "benchmark_prices", mode="before")(
+      unwrap_series
   )
 
-  @model_validator(mode="after")
-  def _check(self):
-    if (
-        len(self.asset_prices) < _MIN_POINTS
-        or len(self.benchmark_prices) < _MIN_POINTS
-    ):
-      raise ValueError(f"both series need >= {_MIN_POINTS} prices")
-    return self
 
-
-def compute_beta(
-    asset_prices, benchmark_prices
-):
-  """Compute beta from aligned asset and benchmark percentage returns."""
-
-  ra, rb = align(pct_returns(asset_prices), pct_returns(benchmark_prices))
-  if len(ra) < 2:
-    raise ToolError("not enough overlapping observations to estimate beta")
-  var_b = statistics.variance(rb)
+def compute_beta(asset, benchmark, price_field = "adj_close"):
+  """Compute beta from the returns of two dated series over their common dates."""
+  dates, prices, dropped = join_on_date(
+      {
+          "asset": dated_prices(asset, price_field, "asset"),
+          "benchmark": dated_prices(benchmark, price_field, "benchmark"),
+      },
+      _MIN_POINTS,
+  )
+  rets = joint_returns(prices)
+  ra, rb = rets["asset"], rets["benchmark"]
+  var_b = statistics.variance(rb) if len(rb) >= 2 else 0.0
   beta = statistics.covariance(ra, rb) / var_b if var_b else None
   corr = (
       statistics.correlation(ra, rb)
@@ -73,18 +80,24 @@ def compute_beta(
       "correlation": round(corr, 4) if corr is not None else None,
       "r_squared": round(corr**2, 4) if corr is not None else None,
       "n_obs": len(ra),
+      "start": dates[0].isoformat(),
+      "end": dates[-1].isoformat(),
+      "dropped": dropped,
   }
 
 
 def _markdown(res):
+  dropped = res["dropped"]
   return (
-      f"**Beta** (n={res['n_obs']}): {num(res['beta'])} · "
-      f"correlation {num(res['correlation'])} · R² {num(res['r_squared'])}"
+      f"**Beta** (n={res['n_obs']}, {res['start']} to {res['end']}):"
+      f" {num(res['beta'])}, correlation {num(res['correlation'])}, R^2"
+      f" {num(res['r_squared'])}\n  points without a common date: asset"
+      f" {dropped['asset']}, benchmark {dropped['benchmark']}"
   )
 
 
 async def _handler(req):
-  res = compute_beta(req.asset_prices, req.benchmark_prices)
+  res = compute_beta(req.asset_prices, req.benchmark_prices, req.price_field)
   return ToolResponse(markdown=_markdown(res), structured=res, meta={})
 
 
