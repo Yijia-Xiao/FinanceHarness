@@ -19,7 +19,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 _DEFAULT_CONFIG_PATH = (
     Path(__file__).resolve().parents[2] / "configs" / "runtime.json"
@@ -80,10 +80,9 @@ class ReaderConfig(_Section):
   max_tokens: int = (
       8192  # generous so reasoning-model readers leave room for output
   )
-  # Characters of page text the reader sees; None is the whole page. Filing
-  # questions need it whole: a 10-K's reconciliation tables often sit 200k+
-  # characters in. A reader with a small context window may need a limit.
-  max_chars: int | None = None
+  # Characters of page text the reader sees. None derives the limit from the
+  # reader's context window (visit_reader.page_char_limit).
+  max_chars: int | None = Field(None, gt=0)
 
 
 class RuntimeConfig(_Section):

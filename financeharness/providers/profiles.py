@@ -70,6 +70,9 @@ class ModelProfile(BaseModel):
   # default qwen-reader. Cloud backbones read their own pages so a run never
   # depends on the local reader being served.
   reader_profile: str | None = None
+  # Context window in tokens. Bounds the page text sent when this profile reads
+  # pages; None falls back to the runtime ``recovery.context_window``.
+  context_window: int | None = None
 
   def resolve_api_key(self, env = None):
     """Resolve the credential: explicit literal wins, else the env var,
@@ -107,6 +110,7 @@ _BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
         "base_url": _GEMINI_BASE_URL,
         "api_key_env": "GEMINI_API_KEY",
         "reader_profile": "gemini",  # flash reads its own pages (compat path)
+        "context_window": 1048576,
         "generation": {"temperature": 0.7, "top_p": 0.95, "max_tokens": 16384},
     },
     "gpt": {
