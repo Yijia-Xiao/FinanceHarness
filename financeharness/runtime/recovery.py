@@ -1,4 +1,4 @@
-"""Model-call recovery policy — pure decisions, no I/O.
+"""Model-call recovery policy: pure decisions, no I/O.
 
 Decides what to do when a model call doesn't cleanly succeed:
   - truncation (``finish_reason == "length"``) → escalate ``max_tokens``
@@ -210,7 +210,7 @@ def compact_messages(
     if _ELISION_MARKER in content or len(content) <= len(_ELISION_MARKER) + 64:
       continue
     new_messages[i]["content"] = (
-        f"{_ELISION_MARKER} — {len(content)} chars omitted; the full tool "
+        f"{_ELISION_MARKER}: {len(content)} chars omitted; the full tool "
         "output is preserved in the run trajectory's tool_log.]"
     )
     n_elided += 1

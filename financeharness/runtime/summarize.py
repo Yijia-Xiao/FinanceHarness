@@ -1,4 +1,4 @@
-"""Conversation summarization — the `/compact` capability.
+"""Conversation summarization: the `/compact` capability.
 
 Frees context on a long multi-turn session by replacing the *older* history with
 an
@@ -7,8 +7,7 @@ optional caller instruction steers what to preserve (e.g. "keep every ticker
 figure
 and table"). Fail-open: on any error the history is returned unchanged.
 
-Distinct from ``runtime.recovery.compact_messages`` — that elides old
-tool-result
+Distinct from ``runtime.recovery.compact_messages``, which elides old tool-result
 *bodies* automatically *within* a single run; this summarizes across the whole
 *session*, on demand, preserving meaning rather than dropping it.
 """
@@ -26,12 +25,12 @@ _RENDER_BUDGET = (
 SUMMARY_PROMPT = """\
 You compact a finance research conversation so it fits the model's context window \
 while losing nothing that matters. Write a faithful structured snapshot another \
-analyst could continue from — not a vague paraphrase.
+analyst could continue from, not a vague paraphrase.
 
 Cover, as applicable:
 - The question(s) and the goal/intent.
 - Entities in scope (tickers, companies, sector).
-- Key figures established — preserve exact numbers, tickers, dates, and units \
+- Key figures established: preserve exact numbers, tickers, dates, and units \
 verbatim; never round or invent.
 - Tools used and their notable results.
 - Conclusions reached, the current state, and any open next steps.
@@ -111,14 +110,14 @@ async def summarize_history(
         client=client,
     )
     summary = (resp.choices[0].message.content or "").strip()
-  except Exception:  # noqa: BLE001 — fail-open: never lose the session on a compaction error
+  except Exception:  # noqa: BLE001 (fail-open: never lose the session on a compaction error)
     return messages, {"compacted": False, "reason": "summarization failed"}
   if not summary:
     return messages, {"compacted": False, "reason": "empty summary"}
 
   snapshot = {
       "role": "assistant",
-      "content": f"[Earlier conversation — compacted summary]\n\n{summary}",
+      "content": f"[Earlier conversation: compacted summary]\n\n{summary}",
   }
   new = [snapshot, *tail]
   return new, {
