@@ -22,11 +22,12 @@ _REF_SECTION_RE = re.compile(
     r"|references:?[ \t]*\n(?=\s*(?:\[\d|https?://|\d+[.)]\s|[-*+]\s)))",
     flags=re.IGNORECASE,
 )
-# Strip leaked "[End of output … appends … references …]" template markers.
+# A leaked "[End of report. ... appends ... References ...]" template note on
+# a line of its own, removed with the line.
 _EOM_LEAK_RE = re.compile(
-    r"\n*\[?\s*End of (?:your )?(?:output|report)\."
-    r"[^\]\n]*?(?:appends?)[^\]\n]*?references[^\]\n]*?\]?\s*",
-    flags=re.IGNORECASE,
+    r"^[ \t]*\[?[ \t]*End of (?:your )?(?:output|report)\."
+    r"[^\]\n]*?(?:appends?)[^\]\n]*?references[^\]\n]*\]?[ \t]*\n?",
+    flags=re.IGNORECASE | re.MULTILINE,
 )
 _BRACKET_RE = re.compile(r"(?P<lead>\s*)\[(?P<digits>\d+(?:\s*,\s*\d+)*)\]")
 # Fenced blocks and inline code spans: bracketed numbers inside them are code
@@ -65,7 +66,7 @@ def validate_and_append_references(
   """
   m = _REF_SECTION_RE.search(prediction)
   body = (prediction[: m.start()] if m else prediction).rstrip()
-  body = _EOM_LEAK_RE.sub("\n", body).rstrip()
+  body = _EOM_LEAK_RE.sub("", body).rstrip()
 
   n_refs = len(citations)
   cited: set[int] = set()

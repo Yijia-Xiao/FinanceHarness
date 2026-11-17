@@ -78,7 +78,6 @@ def test_report_without_sources_gets_no_references_and_no_markers():
   assert stats["n_orphans_stripped"] == 1
 
 
-@pytest.mark.xfail(strict=True, reason="leaked end-of-report notes are only partly removed")
 def test_leaked_end_of_report_note_is_removed(cache):
   report = (
       "Revenue rose [1].\n\n"
@@ -96,6 +95,22 @@ def test_sections_after_a_line_reading_references_are_kept(cache):
   )
   text, _ = validate_and_append_references(report, cache.citations)
   assert "## Outlook\n\nManagement expects growth to continue." in text
+
+
+def test_text_after_a_leaked_end_of_report_note_is_kept(cache):
+  report = (
+      "Revenue rose [1].\n"
+      "[End of output. The system appends references.]\n\n"
+      "## Outlook\n\nGrowth continues."
+  )
+  text, _ = validate_and_append_references(report, cache.citations)
+  assert text.startswith("Revenue rose [1].\n\n## Outlook\n\nGrowth continues.\n")
+
+
+def test_sentence_that_resembles_the_end_note_is_kept(cache):
+  report = "At the end of report. The appendix appends the references list here [1]."
+  text, _ = validate_and_append_references(report, cache.citations)
+  assert text.startswith(report + "\n")
 
 
 @pytest.mark.parametrize(
