@@ -86,6 +86,15 @@ export FH_QWEN_READER_BASE_URL=http://gpu-box:8001/v1   # the long-document read
 Pick a backbone per run with `--profile NAME`, or change the default in
 [`configs/providers.json`](configs/providers.json) (or via `FH_PROFILE`).
 
+Run limits and page reading are set in
+[`configs/runtime.json`](configs/runtime.json):
+
+- `reader.max_chars`: characters of a page sent to the reader. `null` sizes it
+  to the reader's context window (`context_window` in a profile, else
+  `recovery.context_window`).
+- `fetch.sec_user_agent` (or `FH_SEC_USER_AGENT`): User-Agent sent to sec.gov.
+  The SEC asks automated clients for a name and a contact email.
+
 ### Run
 
 One-shot research. The cited report goes to stdout, progress to stderr, so

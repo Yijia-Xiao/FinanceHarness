@@ -7,10 +7,12 @@ state across runs.
 
 from __future__ import annotations
 
+import functools
 import os
 from pathlib import Path
 
 from financeharness.runtime.citations import validate_and_append_references
+from financeharness.runtime.config import load_runtime_config
 from financeharness.runtime.skill_registry import (
   load_skill_registry,
   merge_skills,
@@ -46,10 +48,12 @@ def build_research_registry(
   """
   # search pre-flight validation uses the same fetcher as visit when injected,
   # else a quick single-attempt fetch in production.
-  registry = ToolRegistry()
-  registry.register(
-      build_search_spec(cache, backend, validator=fetcher or quick_fetch)
+  config = config or load_runtime_config()
+  validator = fetcher or functools.partial(
+      quick_fetch, sec_user_agent=config.fetch.sec_user_agent
   )
+  registry = ToolRegistry()
+  registry.register(build_search_spec(cache, backend, validator=validator))
   registry.register(
       build_visit_spec(
           cache, reader_profile, fetcher=fetcher, client=client, config=config

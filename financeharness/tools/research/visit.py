@@ -13,6 +13,7 @@ selected for the active backbone.
 
 from __future__ import annotations
 
+import functools
 import json
 import re
 
@@ -142,8 +143,10 @@ def build_visit_spec(
     config = None,
 ):
   """Build the per-run `visit` tool bound to the cache + reader backbone."""
-  fetcher = fetcher or http_fetch
   cfg = config or load_runtime_config()
+  fetcher = fetcher or functools.partial(
+      http_fetch, sec_user_agent=cfg.fetch.sec_user_agent
+  )
 
   async def handler(req):
     pages: list[dict] = []

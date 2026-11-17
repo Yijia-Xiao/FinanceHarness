@@ -19,7 +19,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 _DEFAULT_CONFIG_PATH = (
     Path(__file__).resolve().parents[2] / "configs" / "runtime.json"
@@ -80,10 +80,25 @@ class ReaderConfig(_Section):
   max_tokens: int = (
       8192  # generous so reasoning-model readers leave room for output
   )
-  # Characters of page text the reader sees; None is the whole page. Filing
-  # questions need it whole: a 10-K's reconciliation tables often sit 200k+
-  # characters in. A reader with a small context window may need a limit.
-  max_chars: int | None = None
+  # Characters of page text the reader sees. None derives the limit from the
+  # reader's context window (visit_reader.page_char_limit).
+  max_chars: int | None = Field(None, gt=0)
+
+
+class FetchConfig(_Section):
+  """Page fetching."""
+
+  # User-Agent sent to sec.gov, which refuses browser agents. The SEC asks
+  # automated clients for a name and a contact email.
+  sec_user_agent: str = "FinanceHarness research agent"
+
+  @field_validator("sec_user_agent")
+  @classmethod
+  def _header_value(cls, v):
+    v = v.strip()
+    if not v or not v.isascii() or not v.isprintable():
+      raise ValueError("must be non-empty printable ASCII")
+    return v
 
 
 class RuntimeConfig(_Section):
@@ -94,6 +109,11 @@ class RuntimeConfig(_Section):
   backoff: BackoffConfig = BackoffConfig()
   recovery: RecoveryConfig = RecoveryConfig()
   reader: ReaderConfig = ReaderConfig()
+  fetch: FetchConfig = FetchConfig()
+
+
+def _sec_user_agent(raw):
+  return FetchConfig(sec_user_agent=raw).sec_user_agent
 
 
 # env var -> (section, key, caster). Highest precedence so a live deployment is
@@ -104,6 +124,7 @@ _ENV_OVERRIDES: dict[str, tuple[str, str, Callable[[str], Any]]] = {
     "MAX_RUN_DURATION_S": ("limits", "run_wall_clock_s", int),
     "MAX_LLM_CALL_PER_RUN": ("limits", "max_rounds", int),
     "CONTEXT_WINDOW": ("recovery", "context_window", int),
+    "FH_SEC_USER_AGENT": ("fetch", "sec_user_agent", _sec_user_agent),
 }
 
 

@@ -225,11 +225,21 @@ def test_reply_still_truncated_at_the_ceiling_is_returned_as_truncated(tmp_path)
   assert trajectory["prediction"] == "Partial"
 
 
-@pytest.mark.xfail(strict=False, reason="blank model replies are returned as finished answers")
-def test_blank_reply_is_not_accepted_as_an_answer(tmp_path):
-  agent, _ = calc_agent(tmp_path, [text_reply(""), text_reply("Final report.")])
+def test_blank_reply_is_asked_again_and_the_next_answer_is_used(tmp_path):
+  agent, client = calc_agent(tmp_path, [text_reply(""), text_reply("Final report.")])
   trajectory = run(agent.run("Question"))
-  assert trajectory["termination"] != "answer" or trajectory["prediction"].strip()
+  assert trajectory["termination"] == "answer"
+  assert trajectory["prediction"].strip() == "Final report."
+  assert len(client.requests) == 2
+  assert client.requests[1]["messages"][-1]["role"] == "user"
+
+
+def test_run_of_blank_replies_ends_as_empty_answer(tmp_path):
+  agent, client = calc_agent(tmp_path, [text_reply(""), text_reply(" \n"), text_reply("")])
+  trajectory = run(agent.run("Question"))
+  assert trajectory["termination"] == "empty_answer"
+  assert not trajectory["prediction"].strip()
+  assert len(client.requests) == 3
 
 
 @pytest.mark.xfail(

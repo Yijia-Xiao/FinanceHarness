@@ -9,10 +9,11 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import io
-import os
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from urllib.parse import urlsplit
+
+from financeharness.runtime.config import FetchConfig
 
 
 @dataclass
@@ -46,10 +47,9 @@ _FETCH_HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
 }
-# sec.gov answers a browser User-Agent with 403: its fair-access policy asks
-# automated clients to declare who they are. Its requests carry a declared
-# agent instead (FH_SEC_USER_AGENT; the SEC suggests a name and contact email).
-_SEC_USER_AGENT = os.environ.get("FH_SEC_USER_AGENT") or "FinanceHarness research agent"
+# sec.gov answers a browser User-Agent with 403; its requests carry the
+# declared agent from the runtime config (fetch.sec_user_agent).
+_SEC_USER_AGENT = FetchConfig().sec_user_agent
 _RETRY_STATUS = frozenset({403, 408, 425, 429, 500, 502, 503, 504})
 _FETCH_ATTEMPTS = 3
 _FETCH_BACKOFF_S = 1.5
@@ -73,22 +73,22 @@ def _extract_pdf(content):
   return "\n".join(parts)
 
 
-def _headers_for(url):
+def _headers_for(url, sec_user_agent = _SEC_USER_AGENT):
   """Request headers for ``url``: the declared agent for sec.gov, else the browser's."""
   host = (urlsplit(url).hostname or "").lower()
   if host == "sec.gov" or host.endswith(".sec.gov"):
-    return {**_FETCH_HEADERS, "User-Agent": _SEC_USER_AGENT}
+    return {**_FETCH_HEADERS, "User-Agent": sec_user_agent}
   return _FETCH_HEADERS
 
 
-async def _fetch_once(url, timeout):
+async def _fetch_once(url, timeout, sec_user_agent = _SEC_USER_AGENT):
   """One GET -> extracted text; retryable failures carry a ``retryable:`` prefix."""
   import httpx
   import trafilatura
 
   try:
     async with httpx.AsyncClient(
-        follow_redirects=True, timeout=timeout, headers=_headers_for(url)
+        follow_redirects=True, timeout=timeout, headers=_headers_for(url, sec_user_agent)
     ) as client:
       resp = await client.get(url)
     if resp.status_code in _RETRY_STATUS:
@@ -115,9 +115,11 @@ async def _fetch_once(url, timeout):
     )
 
 
-async def quick_fetch(url, *, timeout = 8.0):
+async def quick_fetch(
+    url, *, timeout = 8.0, sec_user_agent = _SEC_USER_AGENT
+):
   """Single-attempt fetch for quick search-result readability validation."""
-  page = await _fetch_once(url, timeout)
+  page = await _fetch_once(url, timeout, sec_user_agent)
   if not page.ok and (page.error or "").startswith("retryable:"):
     page = FetchedPage(
         url=url, text="", ok=False, error=page.error[len("retryable:") :]
@@ -126,12 +128,12 @@ async def quick_fetch(url, *, timeout = 8.0):
 
 
 async def http_fetch(
-    url, *, timeout = _FETCH_TIMEOUT_S
+    url, *, timeout = _FETCH_TIMEOUT_S, sec_user_agent = _SEC_USER_AGENT
 ):
   """Default fetcher: HTTP GET -> extracted text, retrying transient failures."""
   page = FetchedPage(url=url, text="", ok=False, error="no attempt")
   for attempt in range(_FETCH_ATTEMPTS):
-    page = await _fetch_once(url, timeout)
+    page = await _fetch_once(url, timeout, sec_user_agent)
     if page.ok or not (page.error or "").startswith("retryable:"):
       break
     if attempt < _FETCH_ATTEMPTS - 1:
