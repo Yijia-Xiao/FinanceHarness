@@ -1,7 +1,7 @@
 """The native Gemini provider (google-genai SDK).
 
 Gemini's OpenAI-compatible endpoint exposes thoughts only as ``<thought>`` tags
-and rides the multi-turn ``thought_signature`` on a sparse extra field — fiddly,
+and rides the multi-turn ``thought_signature`` on a sparse extra field: fiddly,
 and the source of the streamed-tool-calling stalls. The native SDK is clean:
 structured thought parts (``Part.thought``), function calls, and the
 ``thought_signature`` (opaque bytes) that must be echoed on the function-call
@@ -9,9 +9,9 @@ part
 or multi-turn tool calling fails.
 
 The normalized chat history is translated to ``Content``s each call. The only
-state that must round-trip is the per-call ``thought_signature`` — carried
-(base64, JSON-safe) on :class:`ToolCall.extra`, exactly its purpose — so no
-turn-level threading blob is needed; function results are matched back by name.
+state that must round-trip is the per-call ``thought_signature``, carried
+(base64, JSON-safe) on :class:`ToolCall.extra`, so no turn-level threading blob
+is needed; function results are matched back by name.
 """
 
 from __future__ import annotations
@@ -131,7 +131,7 @@ def _finish(resp):
 
 
 class GeminiProvider(Provider):
-  """Native google-genai backbone — structured thoughts + thought_signature threading."""
+  """Native google-genai backbone: structured thoughts + thought_signature threading."""
 
   async def generate(
       self,
@@ -212,7 +212,7 @@ class GeminiProvider(Provider):
     elif fr in _BLOCKED_REASONS or (
         finish is None and not content and not reasoning
     ):
-      # safety/recitation block, or no candidates at all — signal failure so the
+      # safety/recitation block, or no candidates at all: signal failure so the
       # loop's recovery treats it like the chat provider's empty-choices case.
       finish_reason = "error"
     else:

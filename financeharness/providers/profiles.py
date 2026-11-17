@@ -1,4 +1,4 @@
-"""Model profiles — the config that selects *which* backbone a call uses.
+"""Model profiles: the config that selects *which* backbone a call uses.
 
 A profile names a model, an OpenAI-compatible endpoint, the credential to use,
 generation defaults, and an optional quirk adapter. Profiles come from built-in
@@ -59,8 +59,8 @@ class ModelProfile(BaseModel):
   # OpenAI-compatible Chat Completions (works with vLLM / any compatible endpoint);
   # "gemini" = the native google-genai SDK. Selects the provider via provider_for().
   provider: Literal["chat", "gemini"] = "chat"
-  # Role in the harness: a "backbone" drives the agent loop (and is switchable via
-  # /model); a "reader" is the page-reading model and is never a loop backbone.
+  # Role in the harness: a "backbone" drives the agent loop (and is selectable per
+  # request); a "reader" is the page-reading model and is never a loop backbone.
   role: Literal["backbone", "reader"] = "backbone"
   # The reader (page-extraction) profile to pair with this backbone. None → the
   # default qwen-reader. Cloud backbones read their own pages so a run never
@@ -80,9 +80,9 @@ class ModelProfile(BaseModel):
     return (env if env is not None else os.environ).get(self.api_key_env, "")
 
 
-# Built-in backbones — the runtime that serves the model is the axis of identity:
-#   hosted:  gemini (Google) · gpt (OpenAI)   — need an API key
-#   local:   qwen (open-weight, via vLLM)      — keyless, self-served
+# Built-in backbones. The runtime that serves the model is the axis of identity:
+#   hosted (need an API key):     gemini (Google), gpt (OpenAI)
+#   local (keyless, self-served): qwen (open-weight, via vLLM)
 # The default is `gemini` (a cloud backbone that runs with only an API key, so a
 # fresh install works without standing up a server). Each backbone names the
 # reader it pairs with; the cloud backbones read their own pages, so a run never
@@ -99,7 +99,7 @@ _BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
     "gemini": {
         "name": "gemini",
         "model": "gemini-3.6-flash",
-        # Native google-genai SDK in the loop — structured thoughts + thought_signature
+        # Native google-genai SDK in the loop: structured thoughts + thought_signature
         # threading (clean multi-turn tool calling). Needs GEMINI_API_KEY. base_url is
         # the OpenAI-compat endpoint, used only by the page-reader's complete() path.
         "provider": "gemini",
@@ -134,7 +134,7 @@ _BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
         "role": "reader",
         "base_url": _QWEN_READER_BASE_URL,
         "api_key_literal": "EMPTY",
-        # Reader does fast JSON extraction — thinking OFF (top_k via extra_body).
+        # Reader does fast JSON extraction: thinking OFF (top_k via extra_body).
         "extra_body": {
             "top_k": 20,
             "chat_template_kwargs": {"enable_thinking": False},
@@ -248,11 +248,10 @@ def available_backbones(
     path = None,
     env = None,
 ):
-  """Switchable backbone profiles (``role == "backbone"``) with credential
+  """Switchable backbone profiles (``role == "backbone"``) with credential availability.
 
-  availability — the page reader is excluded. ``available`` is True for a
-  keyless
-  vLLM (``api_key_literal`` set) or when the profile's API key resolves. Ordered
+  The page reader is excluded. ``available`` is True for a keyless vLLM
+  (``api_key_literal`` set) or when the profile's API key resolves. Ordered
   available first (the default floated up), then alphabetically. Backs the
   ``/models`` endpoint's picker; the active profile is a per-request choice, so
   the endpoint reports the configured default separately.

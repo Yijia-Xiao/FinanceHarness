@@ -1,11 +1,10 @@
 """The model-agnostic backbone seam.
 
-The loop talks to one normalized interface — :class:`Provider`, returning an
-:class:`AssistantTurn` — and ``provider_for(profile)`` builds the right one for
-a
-:class:`ModelProfile`. Each provider uses its backbone's most native path:
-``chat`` (OpenAI-compatible Chat Completions — works with vLLM / any compatible
-endpoint + the page-reader) and ``gemini`` (the native google-genai SDK —
+The loop talks to one normalized interface (:class:`Provider`, returning an
+:class:`AssistantTurn`), and ``provider_for(profile)`` builds the right one for
+a :class:`ModelProfile`. Each provider uses its backbone's most native path:
+``chat`` (OpenAI-compatible Chat Completions: works with vLLM / any compatible
+endpoint + the page-reader) and ``gemini`` (the native google-genai SDK:
 structured thoughts + thought_signature). Both surface reasoning/content deltas
 through the same seam.
 

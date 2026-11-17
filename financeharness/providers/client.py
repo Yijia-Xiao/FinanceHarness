@@ -1,4 +1,4 @@
-"""The backbone client seam — build a client and issue chat completions.
+"""The backbone client seam: build a client and issue chat completions.
 
 One place constructs the OpenAI-compatible ``AsyncOpenAI`` client and assembles
 the create-kwargs (model-agnostic base + profile ``extra_body`` + quirk
@@ -167,7 +167,7 @@ async def stream(
         acc["arguments"] += tc.function.arguments
       # Gemini emits a `thought_signature` in the tool-call's extra_content (on
       # the first delta); it MUST be echoed back on the next turn or multi-turn
-      # tool calling 400s. Non-streaming carries it natively — capture it here too.
+      # tool calling 400s. Non-streaming carries it natively; capture it here too.
       extra = getattr(tc, "extra_content", None) or (
           getattr(tc, "model_extra", None) or {}
       ).get("extra_content")
@@ -193,10 +193,10 @@ def _assemble_completion(
     tool_calls,
     finish_reason,
 ):
-  """Rebuild a ``ChatCompletion`` from accumulated streaming deltas — the same
+  """Rebuild a ``ChatCompletion`` from accumulated streaming deltas.
 
-  shape ``complete()`` returns, so the loop, recovery, and logging are agnostic
-  to whether the call streamed.
+  The shape is the same one ``complete()`` returns, so the loop, recovery, and
+  logging are agnostic to whether the call streamed.
   """
   calls = [
       ChatCompletionMessageToolCall(
