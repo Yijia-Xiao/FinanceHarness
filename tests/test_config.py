@@ -1,9 +1,13 @@
 """Configuration loading: runtime settings and model profiles, with their precedence rules."""
 
 import json
+from pathlib import Path
 
 import pytest
 
+import financeharness
+from financeharness import paths
+from financeharness.paths import config_dir, config_file
 from financeharness.providers.profiles import (
   available_backbones,
   default_profile_name,
@@ -174,3 +178,183 @@ def test_backbone_list_excludes_readers_and_puts_usable_ones_first(tmp_path):
       ("qwen", True),
       ("gpt", False),
   ]
+
+
+def test_user_config_directory_is_the_home_one_unless_the_environment_names_another(tmp_path):
+  assert config_dir(env={}) == Path.home() / ".financeharness"
+  assert config_dir(env={"FH_CONFIG_DIR": str(tmp_path)}) == tmp_path
+  assert config_file("runtime.json", env={"FH_CONFIG_DIR": "~/x"}) == (
+      Path.home() / "x" / "runtime.json"
+  )
+
+
+def test_files_in_the_user_config_directory_are_loaded_by_default(tmp_path):
+  write_json(tmp_path / "runtime.json", {"limits": {"max_rounds": 7}})
+  write_json(
+      tmp_path / "providers.json",
+      {"default": "local", "profiles": {"local": {"model": "m", "api_key_literal": "EMPTY"}}},
+  )
+  env = {"FH_CONFIG_DIR": str(tmp_path)}
+
+  assert load_runtime_config(env=env).limits.max_rounds == 7
+  assert default_profile_name(env=env) == "local"
+  assert get_profile(env=env).model == "m"
+  assert load_runtime_config(env={"FH_CONFIG_DIR": str(tmp_path / "none")}) == RuntimeConfig()
+
+
+def test_environment_wins_over_the_user_config_directory(tmp_path):
+  write_json(tmp_path / "runtime.json", {"limits": {"max_rounds": 7}})
+  write_json(tmp_path / "providers.json", {"default": "gpt"})
+  env = {"FH_CONFIG_DIR": str(tmp_path), "MAX_LLM_CALL_PER_RUN": "9", "FH_PROFILE": "qwen"}
+  assert load_runtime_config(env=env).limits.max_rounds == 9
+  assert default_profile_name(env=env) == "qwen"
+
+
+def test_defaults_do_not_depend_on_files_beside_the_package():
+  root = Path(financeharness.__file__).parent.parent
+  assert not (root / "configs").exists()
+  assert load_runtime_config(env={"FH_CONFIG_DIR": str(root / "absent")}) == RuntimeConfig()
+
+
+@pytest.mark.parametrize(
+    ("content", "reason"),
+    [
+        ("{not json", "Expecting property name"),
+        ("[1, 2]", "the top level is not a JSON object"),
+        ('{"limits": {"max_rounds": "many"}}', "limits.max_rounds: Input should be a valid"),
+    ],
+)
+def test_ignored_runtime_file_is_reported_once_on_stderr(
+    tmp_path, capsys, monkeypatch, content, reason
+):
+  monkeypatch.setattr(paths, "_warned", set())
+  path = tmp_path / "runtime.json"
+  path.write_text(content, encoding="utf-8")
+
+  assert load_runtime_config(path, env={}) == RuntimeConfig()
+  assert load_runtime_config(path, env={}) == RuntimeConfig()
+
+  err = capsys.readouterr().err
+  assert err.count("\n") == 1
+  assert err.startswith(f"[fh] ignoring {path}: ")
+  assert reason in err
+  assert err.rstrip().endswith("using defaults")
+
+
+def test_usable_or_missing_runtime_file_is_not_reported(tmp_path, capsys, monkeypatch):
+  monkeypatch.setattr(paths, "_warned", set())
+  path = write_json(tmp_path / "runtime.json", {"limits": {"max_rounds": 7}, "_note": "x"})
+  load_runtime_config(path, env={})
+  load_runtime_config(tmp_path / "absent.json", env={})
+  assert capsys.readouterr().err == ""
+
+
+@pytest.mark.parametrize("content", ["[1]", '{"profiles": [1]}', '{"profiles": {"gpt": 5}}'])
+def test_profile_file_of_the_wrong_shape_leaves_the_builtin_profiles(tmp_path, content):
+  path = tmp_path / "providers.json"
+  path.write_text(content, encoding="utf-8")
+  assert set(load_profiles(path, env={})) == {"gemini", "gpt", "qwen", "qwen-reader"}
+  assert default_profile_name(path, env={}) == "gemini"
+
+
+def test_skipped_profile_is_reported_once_on_stderr(tmp_path, capsys, monkeypatch):
+  monkeypatch.setattr(paths, "_warned", set())
+  path = write_json(
+      tmp_path / "providers.json",
+      {"profiles": {"broken": {"model": "m", "timeout_s": "soon"}, "fine": {"model": "m"}}},
+  )
+
+  assert "fine" in load_profiles(path, env={})
+  assert "broken" not in load_profiles(path, env={})
+
+  err = capsys.readouterr().err
+  assert err.count("\n") == 1
+  assert err.startswith(f"[fh] ignoring profile 'broken' in {path}: timeout_s: ")
+
+
+def test_loaders_read_the_process_environment_when_given_none(tmp_path, monkeypatch):
+  write_json(tmp_path / "runtime.json", {"limits": {"max_rounds": 7}})
+  write_json(tmp_path / "providers.json", {"default": "gpt"})
+  monkeypatch.setenv("FH_CONFIG_DIR", f"  {tmp_path}  ")
+  monkeypatch.delenv("FH_PROFILE", raising=False)
+  assert load_runtime_config().limits.max_rounds == 7
+  assert get_profile().name == "gpt"
+
+
+def test_loaders_use_defaults_when_no_home_directory_can_be_found(monkeypatch):
+  def no_home():
+    raise RuntimeError("Could not determine home directory.")
+
+  monkeypatch.setattr(paths.Path, "home", no_home)
+  assert config_dir(env={}) is None
+  assert load_runtime_config(env={}) == RuntimeConfig()
+  assert get_profile(env={}).name == "gemini"
+
+
+@pytest.mark.parametrize("name", ["runtime.json", "providers.json"])
+def test_config_file_that_cannot_be_read_is_reported_not_raised(
+    tmp_path, capsys, monkeypatch, name
+):
+  monkeypatch.setattr(paths, "_warned", set())
+  (tmp_path / name).mkdir()  # reading a directory fails as an unreadable file does
+  env = {"FH_CONFIG_DIR": str(tmp_path)}
+
+  assert load_runtime_config(env=env) == RuntimeConfig()
+  assert get_profile(env=env).name == "gemini"
+
+  err = capsys.readouterr().err
+  assert err.count("\n") == 1
+  assert err.startswith(f"[fh] ignoring {tmp_path / name}: ")
+
+
+def test_config_files_may_start_with_a_byte_order_mark(tmp_path):
+  (tmp_path / "runtime.json").write_bytes(b'\xef\xbb\xbf{"limits": {"max_rounds": 5}}')
+  (tmp_path / "providers.json").write_bytes(b'\xef\xbb\xbf{"default": "gpt"}')
+  env = {"FH_CONFIG_DIR": str(tmp_path)}
+  assert load_runtime_config(env=env).limits.max_rounds == 5
+  assert default_profile_name(env=env) == "gpt"
+
+
+@pytest.mark.parametrize(
+    ("content", "warning"),
+    [
+        ("{not json", "providers.json: Expecting property name"),
+        ("[1]", "the top level is not a JSON object; using the built-in profiles"),
+        ('{"profiles": [1]}', 'ignoring "profiles" in'),
+        ('{"profiles": {"mine": "x"}}', "ignoring profile 'mine' in"),
+        ('{"default": "nope"}', "'nope' is not a known profile; using 'gemini'"),
+        ('{"default": ["gpt"]}', "['gpt'] is not a known profile; using 'gemini'"),
+    ],
+)
+def test_each_ignored_part_of_the_profile_file_is_reported(
+    tmp_path, capsys, monkeypatch, content, warning
+):
+  monkeypatch.setattr(paths, "_warned", set())
+  path = tmp_path / "providers.json"
+  path.write_text(content, encoding="utf-8")
+
+  assert get_profile(path=path, env={}).name == "gemini"
+  assert get_profile(path=path, env={}).name == "gemini"
+
+  err = capsys.readouterr().err
+  assert err.count("\n") == 1
+  assert warning in err
+
+
+def test_invalid_override_of_a_builtin_profile_keeps_the_builtin_one(
+    tmp_path, capsys, monkeypatch
+):
+  monkeypatch.setattr(paths, "_warned", set())
+  path = write_json(
+      tmp_path / "providers.json",
+      {"profiles": {"gemini": {"timeout_s": "soon"}, "gpt": {"modle": "x"}}},
+  )
+  builtin = load_profiles(tmp_path / "absent.json", env={})
+
+  assert get_profile(path=path, env={}) == builtin["gemini"]
+  assert get_profile("gpt", path=path, env={}) == builtin["gpt"]
+
+  err = capsys.readouterr().err
+  assert "ignoring profile 'gemini'" in err
+  assert "ignoring profile 'gpt'" in err
+  assert err.count("keeping the built-in profile") == 2
