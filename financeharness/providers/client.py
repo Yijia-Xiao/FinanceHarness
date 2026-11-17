@@ -64,9 +64,10 @@ def build_create_kwargs(
       "messages": messages,
       "temperature": g.temperature,
       "top_p": g.top_p,
-      "max_tokens": max_tokens if max_tokens is not None else g.max_tokens,
       "presence_penalty": g.presence_penalty,
   }
+  if max_tokens is not None:
+    kwargs["max_tokens"] = max_tokens
   if tools:
     kwargs["tools"] = tools
     kwargs["tool_choice"] = tool_choice
