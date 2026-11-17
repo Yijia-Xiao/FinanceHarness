@@ -15,6 +15,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 from financeharness.runtime.tool_registry import ToolResponse, ToolSpec
+from financeharness.tools.compute.numeric import Finite
 from financeharness.tools.format import money, num, pct
 
 _DESCRIPTION = (
@@ -31,7 +32,7 @@ _DESCRIPTION = (
 class DCFRequest(BaseModel):
   """Input for a discounted-cash-flow valuation."""
 
-  fcf_schedule: list[float] = Field(
+  fcf_schedule: list[Finite] = Field(
       Ellipsis,
       min_length=1,
       max_length=30,
@@ -62,22 +63,22 @@ class DCFRequest(BaseModel):
       lt=1,
       description="Perpetuity growth g, decimal. Required for gordon_growth; must be < discount_rate.",  # noqa: E501
   )
-  terminal_ebitda: float | None = Field(
+  terminal_ebitda: Finite | None = Field(
       None,
       ge=0,
       description="Year-N EBITDA for the exit-multiple terminal value.",
   )
-  terminal_ebitda_multiple: float | None = Field(
+  terminal_ebitda_multiple: Finite | None = Field(
       None, gt=0, description="EV/EBITDA multiple at the exit horizon."
   )
-  net_debt: float = Field(
+  net_debt: Finite = Field(
       0.0,
       description=(
           "Net debt (debt − cash) subtracted from EV for equity value. 0 for"
           " FCFE."
       ),
   )
-  shares_outstanding: float | None = Field(
+  shares_outstanding: Finite | None = Field(
       None,
       gt=0,
       description=(

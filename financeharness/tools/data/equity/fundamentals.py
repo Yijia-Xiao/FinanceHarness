@@ -18,6 +18,7 @@ from financeharness.tools.data.equity.common import (
   PROVIDER,
   TICKER_MAX_LEN,
   df_cell,
+  is_num,
   money,
   num,
   pct,
@@ -139,7 +140,7 @@ async def _handler(req):
   snap = {
       our: info.get(prov)
       for prov, our in _INFO_MAP.items()
-      if info.get(prov) is not None
+      if is_num(info.get(prov))
   }
   trend = _income_trend(inc)
   structured = {"ticker": ticker, "ttm": snap, "income_trend": trend}

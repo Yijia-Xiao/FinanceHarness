@@ -38,6 +38,13 @@ _UNARY_OPS = {ast.UAdd: operator.pos, ast.USub: operator.neg}
 # Bound `**` so a model-emitted `10**10**10` can't build a multi-billion-digit
 # integer and block the event loop (tool handlers run inline in the async loop).
 _MAX_EXPONENT = 1000
+# A per-node exponent cap is not sufficient on its own, because exponents
+# compose: `((10**1000)**1000)**10` keeps every individual exponent inside the
+# cap while the value grows multiplicatively. Bound the size of the *result* as
+# well, so a chain is refused at whichever step first exceeds the budget.
+# 16384 bits is ~4900 digits, comfortably above anything financial arithmetic
+# needs and above what the exponent cap alone already allowed (10**1000).
+_MAX_RESULT_BITS = 16384
 _FUNCS = {
     "abs": abs,
     "round": round,
@@ -49,17 +56,42 @@ _FUNCS = {
 }
 
 
+def _check_pow(left, right):
+  """Refuse a power whose operands or result would be unreasonably large.
+
+  Integer exponentiation is the one operator here that can turn a short
+  expression into an enormous amount of work, and it is the result size rather
+  than the literal exponent that determines the cost. For integers the result
+  needs about ``bit_length(base) * exponent`` bits, which is cheap to check
+  before doing any of the work. Floats need no size check: an overflowing float
+  power raises OverflowError, which ``safe_eval`` already turns into a
+  ToolError.
+  """
+  if abs(right) > _MAX_EXPONENT:
+    raise ToolError(
+        f"exponent too large (|exponent| > {_MAX_EXPONENT}) — refused to"
+        " avoid a runaway computation"
+    )
+  if (
+      isinstance(left, int)
+      and isinstance(right, int)
+      and right > 0
+      and max(left.bit_length(), 1) * right > _MAX_RESULT_BITS
+  ):
+    raise ToolError(
+        f"result too large (would exceed {_MAX_RESULT_BITS} bits) — refused to"
+        " avoid a runaway computation"
+    )
+
+
 def _eval(node):
   """Recursively evaluate a parsed expression, allowing only safe nodes."""
   if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
     return node.value
   if isinstance(node, ast.BinOp) and type(node.op) in _BIN_OPS:
     left, right = _eval(node.left), _eval(node.right)
-    if type(node.op) is ast.Pow and abs(right) > _MAX_EXPONENT:
-      raise ToolError(
-          f"exponent too large (|exponent| > {_MAX_EXPONENT}) — refused to"
-          " avoid a runaway computation"
-      )
+    if type(node.op) is ast.Pow:
+      _check_pow(left, right)
     return _BIN_OPS[type(node.op)](left, right)
   if isinstance(node, ast.UnaryOp) and type(node.op) in _UNARY_OPS:
     return _UNARY_OPS[type(node.op)](_eval(node.operand))
@@ -103,7 +135,12 @@ class CalcRequest(BaseModel):
 async def _handler(req):
   result = safe_eval(req.expression)
   # tidy float display without lying about precision
-  shown = f"{result:.6g}"
+  try:
+    shown = f"{result:.6g}"
+  except OverflowError:
+    # an exact integer too large to convert to float (e.g. 10**400, well inside
+    # the exponent limit) — show it exactly rather than failing the call
+    shown = f"{result:d}"
   return ToolResponse(
       markdown=f"`{req.expression}` = **{shown}**",
       structured={"expression": req.expression, "result": result},

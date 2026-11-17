@@ -20,6 +20,7 @@ from typing import Any
 from pydantic import BaseModel, Field, model_validator
 
 from financeharness.runtime.tool_registry import ToolResponse, ToolSpec
+from financeharness.tools.compute.numeric import Finite
 from financeharness.tools.format import num, pct
 
 _DESCRIPTION = (
@@ -58,7 +59,7 @@ class CostOfCapitalRequest(BaseModel):
   tax_rate: float | None = Field(
       None, ge=0, le=1, description="Effective tax rate, decimal (all-or-none)."
   )
-  debt_to_equity: float | None = Field(
+  debt_to_equity: Finite | None = Field(
       None, ge=0, description="D/E ratio (all-or-none)."
   )
 

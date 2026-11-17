@@ -15,7 +15,8 @@ import statistics
 
 from pydantic import BaseModel, Field
 
-from financeharness.runtime.tool_registry import ToolResponse, ToolSpec
+from financeharness.runtime.tool_registry import ToolError, ToolResponse, ToolSpec
+from financeharness.tools.compute.numeric import Finite
 from financeharness.tools.compute.risk.returns import pct_returns
 from financeharness.tools.format import pct
 
@@ -32,7 +33,7 @@ _MIN_POINTS = 5
 class VarRequest(BaseModel):
   """Input for historical value-at-risk over a price series."""
 
-  prices: list[float] = Field(
+  prices: list[Finite] = Field(
       Ellipsis,
       min_length=_MIN_POINTS,
       description="Price series (>=5), e.g. [180, 182, 179, 185, 183].",
@@ -67,6 +68,14 @@ def compute_var(
   quantile is sqrt-scaled (a common short-horizon approximation).
   """
   rets = pct_returns(prices)
+  if not rets:
+    # pct_returns skips any observation whose prior is zero, so a series that
+    # passes min_length can still yield nothing to measure. Raise the tool's
+    # own error type rather than letting _percentile IndexError out of here.
+    raise ToolError(
+        "no usable returns in the price series — every observation is preceded"
+        " by a zero price, so no period-over-period change can be computed"
+    )
   scale = horizon**0.5
   tail = 1 - confidence
   hist = -_percentile(rets, tail) * scale
