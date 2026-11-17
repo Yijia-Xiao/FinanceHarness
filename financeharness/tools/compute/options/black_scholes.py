@@ -1,17 +1,18 @@
-"""compute.options.black_scholes — European option price + Greeks (BSM).
+"""compute.options.black_scholes: European option price and Greeks (BSM).
 
 Pure-math. Black-Scholes-Merton for calls and puts on an underlying with a
 continuous dividend yield q, at one or more strikes and a single volatility:
 
-  d1 = [ln(S/K) + (r − q + σ²/2)·T] / (σ√T),  d2 = d1 − σ√T
-  C = S·e^(−qT)·N(d1) − K·e^(−rT)·N(d2)
-  P = K·e^(−rT)·N(−d2) − S·e^(−qT)·N(−d1)
+  d1 = (ln(S/K) + (r - q + vol^2/2) * T) / (vol * sqrt(T))
+  d2 = d1 - vol * sqrt(T)
+  C = S * exp(-q*T) * N(d1) - K * exp(-r*T) * N(d2)
+  P = K * exp(-r*T) * N(-d2) - S * exp(-q*T) * N(-d1)
 
 Strikes chain from data.options.chain (`prev:<id>.calls[*].strike`); a flat
 volatility (e.g. realized vol from data.equity.prices) gives the model price to
-set against the market's. Theta is per year (and per calendar day, ÷365); vega
-and rho are per 1.00 change in σ / r (and per point, ÷100). European exercise
-only — no early-exercise premium.
+set against the market's. Theta is per year (and per calendar day, /365); vega
+and rho are per 1.00 change in volatility / rate (and per point, /100).
+European exercise only: no early-exercise premium.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ import math
 from pydantic import BaseModel, Field, field_validator
 
 from financeharness.runtime.tool_registry import ToolResponse, ToolSpec
+from financeharness.tools.compute.numeric import Finite
 from financeharness.tools.format import num, pct
 
 _DESCRIPTION = (
@@ -30,18 +32,22 @@ _DESCRIPTION = (
     " Pass spot, strikes (e.g. chained from data.options.chain),"
     " time_to_expiry_years, risk_free_rate (e.g. the 3-month yield from"
     " data.market.rates), volatility (e.g. realized vol from data.equity.prices)"
-    " and optional dividend_yield — rates and vol as decimals (0.2 not 20)."
+    " and optional dividend_yield; rates and vol as decimals (0.2 not 20)."
     " European exercise only: no early-exercise premium for American options."
 )
 _MAX_STRIKES = 100
+# Bound on spot and strikes, so their ratio stays inside float range.
+_MAX_PRICE = 1e9
 _DAYS_PER_YEAR = 365
 
 
 class BlackScholesRequest(BaseModel):
   """Input for Black-Scholes-Merton pricing at one or more strikes."""
 
-  spot: float = Field(Ellipsis, gt=0, description="Underlying price, e.g. 100.")
-  strikes: list[float] = Field(
+  spot: Finite = Field(
+      Ellipsis, gt=0, le=_MAX_PRICE, description="Underlying price, e.g. 100."
+  )
+  strikes: list[Finite] = Field(
       Ellipsis,
       min_length=1,
       max_length=_MAX_STRIKES,
@@ -69,8 +75,8 @@ class BlackScholesRequest(BaseModel):
   @field_validator("strikes")
   @classmethod
   def _positive_strikes(cls, v):
-    if any(k <= 0 for k in v):
-      raise ValueError("every strike must be > 0")
+    if any(not 0 < k <= _MAX_PRICE for k in v):
+      raise ValueError(f"every strike must be > 0 and <= {_MAX_PRICE:g}")
     return v
 
 
@@ -86,8 +92,8 @@ def norm_pdf(x):
 def bsm(spot, strike, t, r, sigma, q=0.0):
   """Black-Scholes-Merton call/put price and Greeks for one strike.
 
-  Greeks are in natural units: theta per year, vega per 1.00 of σ, rho per
-  1.00 of r.
+  Greeks are in natural units: theta per year, vega per 1.00 of volatility,
+  rho per 1.00 of the rate.
   """
   sqrt_t = math.sqrt(t)
   vol_t = sigma * sqrt_t
@@ -167,17 +173,17 @@ def compute_black_scholes(req):
 def _markdown(res):
   i = res["inputs"]
   lines = [
-      f"**Black-Scholes-Merton** (European) · S={num(i['spot'])} ·"
-      f" T={num(i['time_to_expiry_years'], 4)}y · r={pct(i['risk_free_rate'], 2)}"
-      f" · σ={pct(i['volatility'])} · q={pct(i['dividend_yield'], 2)}"
+      f"**Black-Scholes-Merton** (European): S={num(i['spot'])},"
+      f" T={num(i['time_to_expiry_years'], 4)}y, r={pct(i['risk_free_rate'], 2)},"
+      f" vol={pct(i['volatility'])}, q={pct(i['dividend_yield'], 2)}"
   ]
   for o in res["options"]:
     c, p = o["call"], o["put"]
     lines.append(
-        f"  K {num(o['strike'])}: call {num(c['price'], 4)} (Δ"
-        f" {num(c['delta'], 3)}, Θ/day {num(c['theta_per_day'], 4)}) · put"
-        f" {num(p['price'], 4)} (Δ {num(p['delta'], 3)}, Θ/day"
-        f" {num(p['theta_per_day'], 4)}) · Γ {num(c['gamma'], 4)} · vega/pt"
+        f"  K {num(o['strike'])}: call {num(c['price'], 4)} (delta"
+        f" {num(c['delta'], 3)}, theta/day {num(c['theta_per_day'], 4)}), put"
+        f" {num(p['price'], 4)} (delta {num(p['delta'], 3)}, theta/day"
+        f" {num(p['theta_per_day'], 4)}), gamma {num(c['gamma'], 4)}, vega/pt"
         f" {num(c['vega_per_point'], 4)}"
     )
   return "\n".join(lines)

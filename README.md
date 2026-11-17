@@ -143,6 +143,9 @@ demand with `load_tool`.
 
 Company, market, and option-chain data are sourced through `yfinance`; option
 quotes are delayed and carry no Greeks, which the options tools compute.
+`data_equity_prices` returns `close` as traded and `adj_close` adjusted for
+dividends. The risk tools take its `bars` whole, pair series by date and read
+`adj_close`.
 
 ## Extend with skills
 
@@ -157,7 +160,7 @@ one with `load_skill` when it fits the task. Bundled:
 | `relative-valuation` | Peer-median multiples applied to the company for an implied range. |
 | `consensus-check` | Sell-side view (targets, estimates, ratings) corroborated against the web. |
 | `equity-deep-dive` | The full workflow: qualitative picture + fundamentals + DCF + comps + consensus. |
-| `options-pricing` | Option chain → risk-free rate → realized vol → Black-Scholes prices, Greeks and implied vol, vs. the market. |
+| `options-pricing` | Option chain, risk-free rate and realized vol into Black-Scholes prices, Greeks and implied vol, against the market. |
 
 Discovery runs in increasing precedence: bundled `financeharness/skills/` → a
 project `./skills/` → `FH_SKILLS_DIR`. A project skill overrides a built-in by

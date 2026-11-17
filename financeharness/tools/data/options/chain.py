@@ -1,8 +1,8 @@
-"""data.options.chain — listed option chain for one expiry (yfinance).
+"""data.options.chain: listed option chain for one expiry (yfinance).
 
 The expirations Yahoo lists for an underlying, and one expiry's calls and puts:
 strike, bid/ask (+ mid), last price and trade time, volume, open interest,
-Yahoo's implied volatility, and the in-the-money flag — plus the underlying spot
+Yahoo's implied volatility, and the in-the-money flag, plus the underlying spot
 and the time to expiry (calendar days / 365) ready to chain into
 compute.options.* (`prev:<id>.calls[*].strike`, `prev:<id>.calls[*].mid`).
 Trimmed to the strikes nearest spot, since a full chain can run to hundreds of
@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import zoneinfo
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
@@ -32,8 +33,8 @@ from financeharness.tools.data.market.quotes import last_quote
 
 _DESCRIPTION = (
     "Listed option chain for a US equity or ETF: the available expirations plus"
-    " one expiry's calls and puts — strike, bid/ask/mid, last price, volume,"
-    " open interest, Yahoo implied volatility, in-the-money flag — with the"
+    " one expiry's calls and puts (strike, bid/ask/mid, last price, volume,"
+    " open interest, Yahoo implied volatility, in-the-money flag) with the"
     " underlying spot and time_to_expiry_years ready to chain into"
     " compute.options.black_scholes / compute.options.implied_vol. expiration"
     " is YYYY-MM-DD (default: the first expiry at least min_days_to_expiry"
@@ -42,6 +43,10 @@ _DESCRIPTION = (
 )
 _DAYS_PER_YEAR = 365
 _LISTED_SHOWN = 12
+# The compute.options tools take at most this many strikes per call.
+_MAX_STRIKES = 100
+# US listed options expire on the exchange's calendar date.
+_EXCHANGE_TZ = zoneinfo.ZoneInfo("America/New_York")
 
 # our key -> yfinance option_chain column (numeric fields)
 _FIELDS = {
@@ -83,7 +88,7 @@ class OptionsChainRequest(BaseModel):
   max_strikes: int = Field(
       20,
       ge=1,
-      le=500,
+      le=_MAX_STRIKES,
       description="Keep the N strikes nearest spot for calls and for puts.",
   )
 
@@ -98,16 +103,25 @@ class OptionsChainRequest(BaseModel):
     return v
 
 
+def _exchange_today(now = None):
+  """Today's date on the exchange calendar (``now``: an aware datetime)."""
+  now = now or datetime.datetime.now(datetime.UTC)
+  return now.astimezone(_EXCHANGE_TZ).date()
+
+
 def _pick_expiry(expirations, today, min_days):
-  """First listed expiry at least ``min_days`` out, else the last one listed."""
+  """First listed expiry at least ``min_days`` and one day out, else the last
+
+  one listed (the handler refuses it when it is dated today).
+  """
   for e in expirations:
-    if (datetime.date.fromisoformat(e) - today).days >= min_days:
+    if (datetime.date.fromisoformat(e) - today).days >= max(min_days, 1):
       return e
   return expirations[-1]
 
 
 def _rows(df):
-  """An option_chain frame → JSON-safe rows (NaN → None), with a bid/ask mid."""
+  """JSON-safe rows from an option_chain frame (NaN as None), with a bid/ask mid."""
   if df is None or getattr(df, "empty", True):
     return []
   out: list[dict[str, Any]] = []
@@ -146,7 +160,7 @@ def _nearest(rows, spot, n):
 
 def _quote_cell(r):
   if r is None:
-    return "–", "–", "–", "–"
+    return "-", "-", "-", "-"
   oi = r["open_interest"]
   return (
       f"{num(r['bid'])}/{num(r['ask'])}",
@@ -159,7 +173,7 @@ def _quote_cell(r):
 def _markdown(s):
   listed = s["expirations"]
   more = (
-      f" … (+{len(listed) - _LISTED_SHOWN} more)"
+      f" (+{len(listed) - _LISTED_SHOWN} more)"
       if len(listed) > _LISTED_SHOWN
       else ""
   )
@@ -167,9 +181,9 @@ def _markdown(s):
   puts = {r["strike"]: r for r in s["puts"]}
   lines = [
       (
-          f"**{s['ticker']} options** — expiry {s['expiration']}"
+          f"**{s['ticker']} options**: expiry {s['expiration']}"
           f" ({s['days_to_expiry']}d, T={num(s['time_to_expiry_years'], 4)}y)"
-          f" · spot {num(s['spot'])} · showing {len(s['calls'])} of"
+          f", spot {num(s['spot'])}, showing {len(s['calls'])} of"
           f" {s['n_calls_listed']} calls, {len(s['puts'])} of"
           f" {s['n_puts_listed']} puts nearest spot"
       ),
@@ -184,7 +198,7 @@ def _markdown(s):
     lines.append(f"| {num(k)} | " + " | ".join(cells) + " |")
   lines.append(
       "\nYahoo data: delayed, no Greeks; Yahoo IV is unreliable without a live"
-      " bid/ask — recompute from mids with compute.options.implied_vol."
+      " bid/ask; recompute from mids with compute.options.implied_vol."
   )
   return "\n".join(lines)
 
@@ -199,10 +213,10 @@ async def _handler(req):
   expirations = list(expirations or ())
   if not expirations:
     raise ToolError(
-        f"no listed options for '{ticker}' — check the ticker (Yahoo covers"
+        f"no listed options for '{ticker}': check the ticker (Yahoo covers"
         " mainly US-listed equities, ETFs, and indices)"
     )
-  today = datetime.date.today()
+  today = _exchange_today()
   expiry = req.expiration or _pick_expiry(
       expirations, today, req.min_days_to_expiry
   )
@@ -210,6 +224,16 @@ async def _handler(req):
     raise ToolError(
         f"{expiry} is not a listed {ticker} expiry; listed:"
         f" {', '.join(expirations[:_LISTED_SHOWN])}"
+    )
+  days = (datetime.date.fromisoformat(expiry) - today).days
+  if days < 1:
+    later = [
+        e for e in expirations if datetime.date.fromisoformat(e) > today
+    ]
+    raise ToolError(
+        f"{ticker} {expiry} expires today: no time to expiry is left to"
+        " price. Later expiries:"
+        f" {', '.join(later[:_LISTED_SHOWN]) or 'none listed'}"
     )
 
   chain = await yf_call(lambda: asyncio.to_thread(tk.option_chain, expiry))
@@ -219,20 +243,19 @@ async def _handler(req):
     quote = await last_quote(ticker)
     spot = quote[0] if quote else None
   if not is_num(spot):
-    raise ToolError(f"no spot price for '{ticker}' — provider may be down")
+    raise ToolError(f"no spot price for '{ticker}': provider may be down")
   spot = round(float(spot), 4)
 
   calls, puts = _rows(chain.calls), _rows(chain.puts)
   if not calls and not puts:
     raise ToolError(f"empty option chain for {ticker} {expiry}")
-  days = (datetime.date.fromisoformat(expiry) - today).days
   structured = {
       "ticker": ticker,
       "spot": spot,
       "expiration": expiry,
       "days_to_expiry": days,
-      # calendar-day basis, to the expiry date (0 on expiry day)
-      "time_to_expiry_years": round(max(days, 0) / _DAYS_PER_YEAR, 6),
+      # calendar-day basis, to the expiry date
+      "time_to_expiry_years": round(days / _DAYS_PER_YEAR, 6),
       "expirations": expirations,
       "n_calls_listed": len(calls),
       "n_puts_listed": len(puts),
