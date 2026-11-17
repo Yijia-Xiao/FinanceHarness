@@ -1,4 +1,4 @@
-"""load_tool — fetch deferred-tool schemas on demand (the ToolSearch pattern).
+"""load_tool: fetch deferred-tool schemas on demand.
 
 The model sees deferred tools as catalog lines only. Calling load_tool marks
 them loaded in the session state (so the next turn's `tools=` includes their

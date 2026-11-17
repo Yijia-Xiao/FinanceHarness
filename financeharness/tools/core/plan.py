@@ -1,12 +1,10 @@
-"""update_plan — a live research plan the model maintains for multi-step work.
+"""update_plan: a live research plan the model maintains for multi-step work.
 
 The model resends the full ordered list of steps (each with a status) whenever
-the
-plan changes; the tool emits a ``plan`` event so the UI can render a checklist
-that
-advances as the run proceeds (transparency on long deep-dive trajectories). Pure
-+
-stateless — the model owns the plan; this just broadcasts it.
+the plan changes; the tool emits a ``plan`` event so the UI can render a
+checklist that advances as the run proceeds (transparency on long deep-dive
+trajectories). Pure + stateless: the model owns the plan; this just broadcasts
+it.
 """
 
 from __future__ import annotations
@@ -39,7 +37,7 @@ class UpdatePlanRequest(BaseModel):
       Ellipsis,
       min_length=1,
       description=(
-          "The full ordered plan as a list of {step, status} objects — resend "
+          "The full ordered plan as a list of {step, status} objects: resend "
           "every step (with its current status) on each update, e.g. "
           '[{"step": "Pull NVDA fundamentals", "status": "completed"}, '
           '{"step": "Run a DCF", "status": "in_progress"}, '
@@ -53,7 +51,7 @@ async def _handler(req):
   emit_tool_event("plan", {"items": items})
   done = sum(1 for s in req.steps if s.status == "completed")
   return ToolResponse(
-      markdown=f"Plan updated — {done}/{len(items)} step(s) done.",
+      markdown=f"Plan updated: {done}/{len(items)} step(s) done.",
       structured={"items": items},
       meta={"steps": len(items), "completed": done},
   )

@@ -1,4 +1,4 @@
-"""The `compose_citations` core tool — hand the model its numbered bibliography.
+"""The `compose_citations` core tool: hand the model its numbered bibliography.
 
 Returns the visit-order, URL-deduped citation list so the model can place inline
 `[N]` markers in its report. The harness appends the matching `## References`
@@ -28,8 +28,8 @@ _WRITE_INSTRUCTION = (
 )
 
 _EMPTY_INSTRUCTION = (
-    "No sources have been read yet. Research further with search/visit, or — if"
-    " answering from prior knowledge — write the report as plain prose; the"
+    "No sources have been read yet. Research further with search/visit, or (if"
+    " answering from prior knowledge) write the report as plain prose; the"
     " body alone is the complete deliverable (the harness adds no bibliography"
     " here)."
 )

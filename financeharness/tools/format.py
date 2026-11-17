@@ -1,4 +1,4 @@
-"""Canonical value formatters for tool output — dollars, percents, plain numbers.
+"""Canonical value formatters for tool output: dollars, percents, plain numbers.
 
 One shared place so data and compute tools render figures identically. Negatives
 are
@@ -36,14 +36,14 @@ def money(v):
 
 
 def pct(v, digits = 1):
-  """A fraction as a percent — ``0.18`` → ``18.0%``."""
+  """A fraction as a percent: ``0.18`` → ``18.0%``."""
   if not _is_real(v):
     return "n/a"
   return f"{v * 100:.{digits}f}%"
 
 
 def num(v, digits = 2):
-  """A plain decimal (ratios, betas, multiples) — ``n/a`` for None/NaN."""
+  """A plain decimal (ratios, betas, multiples), ``n/a`` for None/NaN."""
   if not _is_real(v):
     return "n/a"
   return f"{v:.{digits}f}"

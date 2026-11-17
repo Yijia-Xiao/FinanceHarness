@@ -1,8 +1,8 @@
-"""Search backends — a pluggable interface + the ddgs default.
+"""Search backends: a pluggable interface + the ddgs default.
 
 The deep-research `search` tool talks to a backend through this small protocol,
 so SearXNG / Jina / a corpus index can be added later without touching the tool.
-The core ships `DdgsBackend` (the `ddgs` library — zero infra); other backends
+The core ships `DdgsBackend` (the `ddgs` library, zero infra); other backends
 (SearXNG, Jina, a corpus index) plug in through the same protocol.
 """
 

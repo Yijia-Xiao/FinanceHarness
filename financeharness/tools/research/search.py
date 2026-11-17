@@ -1,18 +1,13 @@
-"""The `search` core tool — batched web discovery with pre-flight validation.
+"""The `search` core tool: batched web discovery with pre-flight validation.
 
 Runs one or more queries through a :class:`SearchBackend`, dedups by URL,
-records
-titles, and (when a validator is provided) **over-fetches candidates and keeps
-only
-the fetchable ones** — pre-fetching each with a quick GET so paywalls /
-bot-walls /
-dead links are dropped before the model ever sees them, and warming the cache so
-the
-later `visit` is an instant, already-validated hit. The model spends its
-attention on
-research, not on fighting false-positive results. Falls back to unvalidated
-results
-if validation yields too few (never starve the model).
+records titles, and (when a validator is provided) **over-fetches candidates
+and keeps only the fetchable ones**: it pre-fetches each with a quick GET so
+paywalls / bot-walls / dead links are dropped before the model ever sees them,
+and warms the cache so the later `visit` is an instant, already-validated hit.
+The model spends its attention on research, not on fighting false-positive
+results. Falls back to unvalidated results if validation yields too few (never
+starve the model).
 """
 
 from __future__ import annotations
@@ -54,12 +49,12 @@ class SearchRequest(BaseModel):
   @field_validator("queries", mode="before")
   @classmethod
   def _wrap_single(cls, v):
-    # A lone string is a common model shape for a list field — accept it.
+    # A lone string is a common model shape for a list field: accept it.
     return [v] if isinstance(v, str) else v
 
 
 _VISIT_NUDGE = (
-    "`visit` the entries most relevant to your question to read and cite them —"
+    "`visit` the entries most relevant to your question to read and cite them,"
     " grounding each figure you use in the page you actually read."
 )
 
@@ -67,7 +62,7 @@ _VISIT_NUDGE = (
 def _render(results):
   lines = [f"Found {len(results)} result(s):", ""]
   for i, r in enumerate(results, 1):
-    lines.append(f"{i}. **{r['title'] or r['url']}** — {r['url']}")
+    lines.append(f"{i}. **{r['title'] or r['url']}**: {r['url']}")
     if r["snippet"]:
       lines.append(f"   {r['snippet']}")
   lines += ["", _VISIT_NUDGE]
@@ -119,7 +114,7 @@ def build_search_spec(
     for q in req.queries:
       try:
         hits = await backend.search(q, fetch_n)
-      except Exception:  # noqa: BLE001 — one query failing shouldn't sink the batch
+      except Exception:  # noqa: BLE001 (one query failing shouldn't sink the batch)
         hits = []
       for h in hits:
         if h.url in seen:
@@ -132,7 +127,7 @@ def build_search_spec(
 
     if not candidates:
       raise ToolError(
-          "No search results — the upstream search may be unavailable or the "
+          "No search results: the upstream search may be unavailable or the "
           "queries too narrow. Try rephrasing or fewer, broader queries."
       )
 

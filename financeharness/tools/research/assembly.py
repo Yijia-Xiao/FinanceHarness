@@ -1,4 +1,4 @@
-"""Assembly — wire the research trio + cache into a registry and finalizer.
+"""Assembly: wire the research trio + cache into a registry and finalizer.
 
 One place builds a fresh `FetchCache`, the three core tools bound to it, and the
 citation finalizer the Agent applies at its single exit. Per request → no shared
@@ -43,7 +43,7 @@ def build_research_registry(
 ):
   """A registry with search + visit + compose_citations bound to ``cache``.
 
-  ``reader_profile`` is the model `visit` uses for page extraction — often a
+  ``reader_profile`` is the model `visit` uses for page extraction, often a
   lighter model than the orchestrator (extraction is simple), though a cloud
   backbone reads its own pages.
   """
@@ -103,7 +103,7 @@ def _project_skill_roots():
 
   project's ``./skills/`` (CWD), then any ``FH_SKILLS_DIR``
   (os.pathsep-separated).
-  Later roots override built-ins by name — skills are extensible without code.
+  Later roots override built-ins by name: skills are extensible without code.
   """
   roots = [Path.cwd() / "skills"]
   env = os.environ.get("FH_SKILLS_DIR")

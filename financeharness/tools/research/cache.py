@@ -1,8 +1,8 @@
-"""FetchCache — per-run shared state for the research tools.
+"""FetchCache: per-run shared state for the research tools.
 
 `search` records discovered titles; `visit` records fetched page content and
 appends citations; `compose_citations` reads the citation index. One cache per
-agent loop, threaded into the tool factories — so the trio coordinate without
+agent loop, threaded into the tool factories, so the trio coordinate without
 global state.
 
 The citation index is the single source of the bibliography: a URL is cited
