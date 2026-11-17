@@ -4,10 +4,9 @@
 compute tools). Each bar's `close` is the price as traded (Yahoo adjusts it for
 splits only); `adj_close` is also adjusted for dividends. Quoted prices are
 as traded; the technicals run on `adj_close`, so a dividend's price drop isn't
-read as a loss. Derived measures are named canon only — SMA(20/50/200),
-golden/death cross, realized volatility (per-bar stdev + annualized to the bar
-interval, factor shown). No interpretive tier labels; the model owns
-interpretation.
+read as a loss. Derived measures: SMA(20/50/200), golden/death cross, realized
+volatility (per-bar stdev and annualized to the bar interval, factor shown).
+No interpretive tier labels; the model owns interpretation.
 """
 
 from __future__ import annotations

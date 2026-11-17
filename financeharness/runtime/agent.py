@@ -392,8 +392,8 @@ class Agent:
           )
         continue
 
-      # No tool calls → the model is answering. A blank reply isn't an answer:
-      # ask again, and if it stays blank, end as "empty_answer", not "answer".
+      # No tool calls: the model is answering. A blank reply is not an answer:
+      # ask again, and if it stays blank, end as "empty_answer".
       if (
           response.finish_reason == "stop"
           and not response.content.strip()
