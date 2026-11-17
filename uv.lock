@@ -490,9 +490,9 @@ dev = [
 requires-dist = [
     { name = "ddgs", specifier = ">=9.14.4" },
     { name = "fastapi", specifier = ">=0.137.2" },
-    { name = "google-genai", specifier = ">=2.10" },
+    { name = "google-genai", specifier = ">=2.10,<3" },
     { name = "httpx", specifier = ">=0.27" },
-    { name = "openai", specifier = ">=1.40" },
+    { name = "openai", specifier = ">=1.40,<3" },
     { name = "pdfplumber", specifier = ">=0.11.10" },
     { name = "pydantic", specifier = ">=2.7" },
     { name = "pyyaml", specifier = ">=6.0.3" },
