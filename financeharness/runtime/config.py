@@ -48,6 +48,9 @@ class LimitsConfig(_Section):
   max_transient_retries: int = 10
   max_truncation_escalations: int = 3
   max_regenerate_retries: int = 3
+  # Blank replies (no text, no tool calls) answered with a nudge before the
+  # run ends as "empty_answer".
+  max_empty_reply_retries: int = 2
 
 
 class BackoffConfig(_Section):
@@ -77,6 +80,10 @@ class ReaderConfig(_Section):
   max_tokens: int = (
       8192  # generous so reasoning-model readers leave room for output
   )
+  # Characters of page text the reader sees; None is the whole page. Filing
+  # questions need it whole: a 10-K's reconciliation tables often sit 200k+
+  # characters in. A reader with a small context window may need a limit.
+  max_chars: int | None = None
 
 
 class RuntimeConfig(_Section):

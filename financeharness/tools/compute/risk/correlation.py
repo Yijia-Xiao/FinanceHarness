@@ -2,7 +2,7 @@
 
 Pure-math. Takes a set of named price series (chain them from
 data.equity.prices'
-``bars[*].close``), converts to returns, aligns to the common window, and
+``bars[*].adj_close``), converts to returns, aligns to the common window, and
 returns the
 pairwise Pearson correlation matrix. Use to see how names co-move
 (diversification,

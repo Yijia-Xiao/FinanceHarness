@@ -9,8 +9,10 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import io
+import os
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 
 @dataclass
@@ -44,6 +46,10 @@ _FETCH_HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
 }
+# sec.gov answers a browser User-Agent with 403: its fair-access policy asks
+# automated clients to declare who they are. Its requests carry a declared
+# agent instead (FH_SEC_USER_AGENT; the SEC suggests a name and contact email).
+_SEC_USER_AGENT = os.environ.get("FH_SEC_USER_AGENT") or "FinanceHarness research agent"
 _RETRY_STATUS = frozenset({403, 408, 425, 429, 500, 502, 503, 504})
 _FETCH_ATTEMPTS = 3
 _FETCH_BACKOFF_S = 1.5
@@ -67,6 +73,14 @@ def _extract_pdf(content):
   return "\n".join(parts)
 
 
+def _headers_for(url):
+  """Request headers for ``url``: the declared agent for sec.gov, else the browser's."""
+  host = (urlsplit(url).hostname or "").lower()
+  if host == "sec.gov" or host.endswith(".sec.gov"):
+    return {**_FETCH_HEADERS, "User-Agent": _SEC_USER_AGENT}
+  return _FETCH_HEADERS
+
+
 async def _fetch_once(url, timeout):
   """One GET -> extracted text; retryable failures carry a ``retryable:`` prefix."""
   import httpx
@@ -74,7 +88,7 @@ async def _fetch_once(url, timeout):
 
   try:
     async with httpx.AsyncClient(
-        follow_redirects=True, timeout=timeout, headers=_FETCH_HEADERS
+        follow_redirects=True, timeout=timeout, headers=_headers_for(url)
     ) as client:
       resp = await client.get(url)
     if resp.status_code in _RETRY_STATUS:

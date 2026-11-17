@@ -168,6 +168,11 @@ grounded — including figures you computed with tools — exactly as it is. Rep
 the complete revised report only."""
 
 
+EMPTY_REPLY_PROMPT = """\
+Your last reply was empty. Continue the research with tool calls, or write your \
+final answer."""
+
+
 CHAINING_PROMPT_BLOCK = """\
 ## Tool-result chaining
 
