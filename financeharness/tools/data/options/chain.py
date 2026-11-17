@@ -1,8 +1,8 @@
-"""data.options.chain — listed option chain for one expiry (yfinance).
+"""data.options.chain: listed option chain for one expiry (yfinance).
 
 The expirations Yahoo lists for an underlying, and one expiry's calls and puts:
 strike, bid/ask (+ mid), last price and trade time, volume, open interest,
-Yahoo's implied volatility, and the in-the-money flag — plus the underlying spot
+Yahoo's implied volatility, and the in-the-money flag, plus the underlying spot
 and the time to expiry (calendar days / 365) ready to chain into
 compute.options.* (`prev:<id>.calls[*].strike`, `prev:<id>.calls[*].mid`).
 Trimmed to the strikes nearest spot, since a full chain can run to hundreds of
@@ -33,8 +33,8 @@ from financeharness.tools.data.market.quotes import last_quote
 
 _DESCRIPTION = (
     "Listed option chain for a US equity or ETF: the available expirations plus"
-    " one expiry's calls and puts — strike, bid/ask/mid, last price, volume,"
-    " open interest, Yahoo implied volatility, in-the-money flag — with the"
+    " one expiry's calls and puts (strike, bid/ask/mid, last price, volume,"
+    " open interest, Yahoo implied volatility, in-the-money flag) with the"
     " underlying spot and time_to_expiry_years ready to chain into"
     " compute.options.black_scholes / compute.options.implied_vol. expiration"
     " is YYYY-MM-DD (default: the first expiry at least min_days_to_expiry"
@@ -121,7 +121,7 @@ def _pick_expiry(expirations, today, min_days):
 
 
 def _rows(df):
-  """An option_chain frame → JSON-safe rows (NaN → None), with a bid/ask mid."""
+  """JSON-safe rows from an option_chain frame (NaN as None), with a bid/ask mid."""
   if df is None or getattr(df, "empty", True):
     return []
   out: list[dict[str, Any]] = []
@@ -160,7 +160,7 @@ def _nearest(rows, spot, n):
 
 def _quote_cell(r):
   if r is None:
-    return "–", "–", "–", "–"
+    return "-", "-", "-", "-"
   oi = r["open_interest"]
   return (
       f"{num(r['bid'])}/{num(r['ask'])}",
@@ -173,7 +173,7 @@ def _quote_cell(r):
 def _markdown(s):
   listed = s["expirations"]
   more = (
-      f" … (+{len(listed) - _LISTED_SHOWN} more)"
+      f" (+{len(listed) - _LISTED_SHOWN} more)"
       if len(listed) > _LISTED_SHOWN
       else ""
   )
@@ -181,9 +181,9 @@ def _markdown(s):
   puts = {r["strike"]: r for r in s["puts"]}
   lines = [
       (
-          f"**{s['ticker']} options** — expiry {s['expiration']}"
+          f"**{s['ticker']} options**: expiry {s['expiration']}"
           f" ({s['days_to_expiry']}d, T={num(s['time_to_expiry_years'], 4)}y)"
-          f" · spot {num(s['spot'])} · showing {len(s['calls'])} of"
+          f", spot {num(s['spot'])}, showing {len(s['calls'])} of"
           f" {s['n_calls_listed']} calls, {len(s['puts'])} of"
           f" {s['n_puts_listed']} puts nearest spot"
       ),
@@ -198,7 +198,7 @@ def _markdown(s):
     lines.append(f"| {num(k)} | " + " | ".join(cells) + " |")
   lines.append(
       "\nYahoo data: delayed, no Greeks; Yahoo IV is unreliable without a live"
-      " bid/ask — recompute from mids with compute.options.implied_vol."
+      " bid/ask; recompute from mids with compute.options.implied_vol."
   )
   return "\n".join(lines)
 
@@ -213,7 +213,7 @@ async def _handler(req):
   expirations = list(expirations or ())
   if not expirations:
     raise ToolError(
-        f"no listed options for '{ticker}' — check the ticker (Yahoo covers"
+        f"no listed options for '{ticker}': check the ticker (Yahoo covers"
         " mainly US-listed equities, ETFs, and indices)"
     )
   today = _exchange_today()
@@ -243,7 +243,7 @@ async def _handler(req):
     quote = await last_quote(ticker)
     spot = quote[0] if quote else None
   if not is_num(spot):
-    raise ToolError(f"no spot price for '{ticker}' — provider may be down")
+    raise ToolError(f"no spot price for '{ticker}': provider may be down")
   spot = round(float(spot), 4)
 
   calls, puts = _rows(chain.calls), _rows(chain.puts)

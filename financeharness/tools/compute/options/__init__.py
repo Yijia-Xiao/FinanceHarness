@@ -1,4 +1,4 @@
-"""Options-compute tools — pure-math European option pricing and implied volatility."""
+"""Options-compute tools: pure-math European option pricing and implied volatility."""
 
 from financeharness.tools.compute.options import black_scholes, implied_vol
 
