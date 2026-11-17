@@ -83,17 +83,51 @@ export FH_QWEN_BASE_URL=http://gpu-box:8000/v1
 export FH_QWEN_READER_BASE_URL=http://gpu-box:8001/v1   # the long-document reader
 ```
 
-Pick a backbone per run with `--profile NAME`, or change the default in
-[`configs/providers.json`](configs/providers.json) (or via `FH_PROFILE`).
+Pick a backbone per run with `--profile NAME`, or set the default with
+`FH_PROFILE` or in `providers.json` (below).
 
-Run limits and page reading are set in
-[`configs/runtime.json`](configs/runtime.json):
+### Configuration files
 
-- `reader.max_chars`: characters of a page sent to the reader. `null` sizes it
-  to the reader's context window (`context_window` in a profile, else
-  `recovery.context_window`).
+The defaults are built in; nothing needs to exist. To change them, put either
+file in `~/.financeharness/` (or the directory named by `FH_CONFIG_DIR`). This
+works the same for an installed copy and a source checkout. Each setting is
+read in this order, later wins: built-in default, file, environment variable.
+
+`providers.json` sets the default backbone and changes or adds profiles:
+
+```json
+{
+  "default": "gpt",
+  "profiles": {
+    "gpt": { "model": "gpt-5.6" },
+    "local": { "model": "my-model", "base_url": "http://127.0.0.1:8000/v1",
+               "api_key_literal": "EMPTY", "reader_profile": "local" }
+  }
+}
+```
+
+`runtime.json` sets run limits and page reading. Only the keys to change are
+needed:
+
+```json
+{
+  "limits": { "max_rounds": 60 },
+  "reader": { "max_chars": 200000 },
+  "fetch": { "sec_user_agent": "Example Research admin@example.com" }
+}
+```
+
+- `reader.max_chars`: characters of a page sent to the reader. `null` (the
+  default) sizes it to the reader's context window (`context_window` in a
+  profile, else `recovery.context_window`).
 - `fetch.sec_user_agent` (or `FH_SEC_USER_AGENT`): User-Agent sent to sec.gov.
   The SEC asks automated clients for a name and a contact email.
+
+A `runtime.json` that cannot be used is ignored as a whole. A profile that is
+not valid is skipped; if it overrides a built-in profile, the built-in one is
+kept. Each case gives one warning on stderr. The sections of `runtime.json` and
+their defaults are the models in
+[`financeharness/runtime/config.py`](financeharness/runtime/config.py).
 
 ### Run
 
