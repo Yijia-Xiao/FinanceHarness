@@ -49,7 +49,7 @@ def _now():
 
 
 def _title_from(messages):
-  """First user question, trimmed — the human-readable label in the session list."""
+  """First user question, trimmed: the human-readable label in the session list."""
   for m in messages:
     if m.get("role") == "user" and (c := (m.get("content") or "").strip()):
       return c[:_TITLE_MAX] + ("…" if len(c) > _TITLE_MAX else "")
@@ -98,7 +98,7 @@ class SessionStore:
     tmp = path.with_suffix(".json.tmp")
     with tmp.open("w", encoding="utf-8") as fh:
       json.dump(record, fh, ensure_ascii=False)
-    os.replace(tmp, path)  # atomic — no half-written session
+    os.replace(tmp, path)  # atomic: no half-written session
 
   def _save(self, session_id, messages):
     msgs = strip_system(messages)

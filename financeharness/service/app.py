@@ -1,4 +1,4 @@
-"""FastAPI app — research/clarify/compact endpoints, sessions, health.
+"""FastAPI app: research/clarify/compact endpoints, sessions, health.
 
 `POST /research` serves both the sync JSON path and the SSE stream
 (stream=true).
@@ -155,7 +155,7 @@ async def _probe(profile):
     async with httpx.AsyncClient(timeout=3.0) as client:
       r = await client.get(base + "/models", headers=headers)
       return r.status_code == 200
-  except Exception:  # noqa: BLE001 — unreachable endpoint → not ready
+  except Exception:  # noqa: BLE001 (unreachable endpoint → not ready)
     return False
 
 
@@ -196,7 +196,7 @@ async def _event_stream(
 
   The run executes as a task; its (sync) on_event pushes events onto a queue
   that this generator drains. The agent's internal `done` (termination only) is
-  dropped — the protocol's terminal `done` carries the full trajectory.
+  dropped: the protocol's terminal `done` carries the full trajectory.
   """
   queue: asyncio.Queue = asyncio.Queue()
 
@@ -220,7 +220,7 @@ async def _event_stream(
       queue.put_nowait(
           ("done", {"trajectory": traj, "session_id": req.session_id})
       )
-    except Exception as exc:  # noqa: BLE001 — surface as an SSE error + empty done
+    except Exception as exc:  # noqa: BLE001 (surface as an SSE error + empty done)
       queue.put_nowait(("error", {"error": f"{type(exc).__name__}: {exc}"}))
       queue.put_nowait(
           ("done", {"trajectory": None, "session_id": req.session_id})
@@ -249,9 +249,9 @@ async def _event_stream(
 async def _clarify_stream(
     req, profile
 ):
-  """Bridge the scoping pass's on_event callback into an SSE frame stream — the
+  """Bridge the scoping pass's on_event callback into an SSE frame stream.
 
-  context search step + hits stream first, then a terminal `clarify_result`.
+  The context search step + hits stream first, then a terminal `clarify_result`.
   """
   queue: asyncio.Queue = asyncio.Queue()
 
@@ -266,7 +266,7 @@ async def _clarify_stream(
           req.question, profile=profile, on_event=on_event
       )
       queue.put_nowait(("clarify_result", {"result": result.model_dump()}))
-    except Exception as exc:  # noqa: BLE001 — fail-open: emit a sufficient result
+    except Exception as exc:  # noqa: BLE001 (fail-open: emit a sufficient result)
       queue.put_nowait(("error", {"error": f"{type(exc).__name__}: {exc}"}))
       queue.put_nowait(("clarify_result", {"result": {"sufficient": True}}))
     finally:
@@ -321,16 +321,17 @@ async def compact(req: CompactRequest):
 async def sessions():
   """List saved sessions (most-recently-updated first) for a client to browse.
 
-  Summaries only — id, title, timestamps, turn count — no message bodies.
+  Summaries only (id, title, timestamps, turn count), no message bodies.
   """
   return {"sessions": _SESSIONS.list()}
 
 
 @app.get("/sessions/{session_id}")
 async def session_detail(session_id):
-  """A session's stored conversation (system stripped) — lets a client rehydrate
+  """A session's stored conversation (system stripped).
 
-  the transcript when resuming. Empty messages for an unknown session.
+  Lets a client rehydrate the transcript when resuming. Empty messages for an
+  unknown session.
   """
   return {"id": session_id, "messages": _SESSIONS.history(session_id) or []}
 
