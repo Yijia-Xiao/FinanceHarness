@@ -61,9 +61,7 @@ def compute_correlation(series):
   # correlation matrix — and n_obs is the actual count used.
   aligned = dict(zip(names, align(*(rets[k] for k in names)), strict=True))
   n_obs = len(next(iter(aligned.values()))) if aligned else 0
-  # A series' variance is a property of the series, not of the pair, so compute
-  # it once per name rather than twice per pair — the pairwise loop below is
-  # O(N²), which made this O(N²·n) on inputs that are cheap to chain in.
+  # variance once per series, not once per pair
   variances = (
       {k: statistics.variance(v) for k, v in aligned.items()}
       if n_obs >= 2

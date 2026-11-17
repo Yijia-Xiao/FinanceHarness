@@ -55,19 +55,15 @@ _FUNCS = {
 
 
 def _check_pow(left, right):
-  """Refuse a power whose operands or result would be unreasonably large.
+  """Refuse a power with a large exponent or a large integer result.
 
-  Integer exponentiation is the one operator here that can turn a short
-  expression into an enormous amount of work, and it is the result size rather
-  than the literal exponent that determines the cost. For integers the result
-  needs about ``bit_length(base) * exponent`` bits, which is cheap to check
-  before doing any of the work. Floats need no size check: an overflowing float
-  power raises OverflowError, which ``safe_eval`` already turns into a
-  ToolError.
+  An integer power needs about ``bit_length(base) * exponent`` bits, checked
+  before the work is done. A float power that overflows raises OverflowError,
+  which ``safe_eval`` turns into a ToolError.
   """
   if abs(right) > _MAX_EXPONENT:
     raise ToolError(
-        f"exponent too large (|exponent| > {_MAX_EXPONENT}) — refused to"
+        f"exponent too large (|exponent| > {_MAX_EXPONENT}): refused to"
         " avoid a runaway computation"
     )
   if (
@@ -77,7 +73,7 @@ def _check_pow(left, right):
       and max(left.bit_length(), 1) * right > _MAX_RESULT_BITS
   ):
     raise ToolError(
-        f"result too large (would exceed {_MAX_RESULT_BITS} bits) — refused to"
+        f"result too large (would exceed {_MAX_RESULT_BITS} bits): refused to"
         " avoid a runaway computation"
     )
 
@@ -142,8 +138,7 @@ async def _handler(req):
   try:
     shown = f"{result:.6g}"
   except OverflowError:
-    # an exact integer too large to convert to float (e.g. 10**400, well inside
-    # the exponent limit) — show it exactly rather than failing the call
+    # an integer too large for a float (e.g. 10**400) is shown exactly
     shown = f"{result:d}"
   return ToolResponse(
       markdown=f"`{req.expression}` = **{shown}**",
