@@ -1,4 +1,4 @@
-"""Valuation compute tools — pure-math DCF, DCF-sensitivity, and WACC."""
+"""Valuation compute tools: pure-math DCF, DCF-sensitivity, and WACC."""
 
 from financeharness.tools.compute.valuation import dcf, dcf_sensitivity, wacc
 

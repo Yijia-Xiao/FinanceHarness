@@ -1,8 +1,8 @@
-"""compute.valuation.dcf — discounted cash flow with two terminal methods.
+"""compute.valuation.dcf: discounted cash flow with two terminal methods.
 
 Pure-math intrinsic value from an explicit FCF schedule + discount rate +
 terminal method. Returns EV, equity value (net of debt), intrinsic value/share,
-and the full PV breakdown. Dollars in, dollars out — the caller chooses WACC
+and the full PV breakdown. Dollars in, dollars out: the caller chooses WACC
 (for FCFF, net_debt matters) or cost of equity (FCFE, net_debt=0); the tool
 faithfully discounts whatever schedule it's given. ``fcf_schedule`` is
 chain-aware.
@@ -173,16 +173,16 @@ def _markdown(res):
   lines = [
       "**DCF valuation**",
       (
-          f"Discount rate {pct(res['discount_rate'])} · {len(res['years'])}y"
-          f" explicit · {tline}"
+          f"Discount rate {pct(res['discount_rate'])}, {len(res['years'])}y"
+          f" explicit, {tline}"
       ),
       "",
       f"Sum PV explicit FCF: {money(res['sum_pv_explicit'])}",
       (
-          f"Terminal value (yr N): {money(res['terminal_value'])} · PV:"
+          f"Terminal value (yr N): {money(res['terminal_value'])}, PV:"
           f" {money(res['pv_terminal'])}"
       ),
-      f"**Enterprise value: {money(res['enterprise_value'])}** · net debt {money(res['net_debt'])}",  # noqa: E501
+      f"**Enterprise value: {money(res['enterprise_value'])}**, net debt {money(res['net_debt'])}",  # noqa: E501
       f"**Equity value: {money(res['equity_value'])}**",
   ]
   if res["shares_outstanding"]:
