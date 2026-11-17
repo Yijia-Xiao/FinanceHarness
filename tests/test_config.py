@@ -68,12 +68,19 @@ def test_runtime_file_that_is_not_a_json_object_is_ignored(tmp_path, content):
   assert load_runtime_config(path, env={}) == RuntimeConfig()
 
 
-@pytest.mark.xfail(
-    strict=True, reason="runtime config files with a value of the wrong type stop startup"
-)
 def test_runtime_file_with_a_wrong_value_type_falls_back_to_defaults(tmp_path):
   path = write_json(tmp_path / "runtime.json", {"limits": {"max_rounds": "many"}})
   assert load_runtime_config(path, env={}).limits.max_rounds == RuntimeConfig().limits.max_rounds
+
+
+@pytest.mark.parametrize(
+    "content",
+    [{"limits": 5}, {"reader": {"max_tokens": [1]}}],
+)
+def test_runtime_file_that_does_not_fit_the_schema_is_ignored_as_a_whole(tmp_path, content):
+  content["generation"] = {"max_tokens": 1234}
+  path = write_json(tmp_path / "runtime.json", content)
+  assert load_runtime_config(path, env={}) == RuntimeConfig()
 
 
 def test_builtin_profiles_load_without_a_file(tmp_path):

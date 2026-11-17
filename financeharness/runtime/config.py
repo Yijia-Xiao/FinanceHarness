@@ -142,8 +142,10 @@ def load_runtime_config(
     try:
       file_cfg = _strip_comments(json.loads(p.read_text()))
       if isinstance(file_cfg, dict):
-        merged = _deep_merge(merged, file_cfg)
-    except (json.JSONDecodeError, OSError, ValueError):
+        with_file = _deep_merge(merged, file_cfg)
+        RuntimeConfig(**with_file)  # a wrong key or value type raises ValueError
+        merged = with_file
+    except (json.JSONDecodeError, OSError, ValueError, TypeError):
       pass  # malformed file → defaults; the harness must always run
 
   if overrides:
