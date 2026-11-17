@@ -204,9 +204,6 @@ def test_failed_reference_stops_the_call_before_the_handler(registry, state, ser
   assert series_handler.calls == 0
 
 
-@pytest.mark.xfail(
-    strict=False, reason="malformed indexes in prev: references crash the run", raises=ValueError
-)
 def test_malformed_index_in_a_reference_is_reported_not_raised(registry, state):
   args = {"values": "prev:p1.bars[--5]"}
   result = run(dispatch("series", args, registry=registry, session_state=state))
@@ -304,7 +301,6 @@ def test_empty_argument_string_means_no_arguments(registry):
 
 
 @pytest.mark.parametrize("token", ["Infinity", "NaN"])
-@pytest.mark.xfail(strict=False, reason="infinite and NaN inputs are accepted by compute tools")
 def test_non_finite_numbers_are_rejected_before_a_compute_tool_runs(registry, token):
   args = f'{{"fcf_schedule": [100, {token}], "discount_rate": 0.1, "terminal_growth_rate": 0.02}}'
   result = run(dispatch_json_args("compute_valuation_dcf", args, registry=registry))

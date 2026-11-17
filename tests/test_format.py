@@ -18,9 +18,31 @@ def test_money_scales_by_magnitude_and_keeps_the_sign(value, expected):
   assert money(value) == expected
 
 
-@pytest.mark.xfail(strict=False, reason="amounts below one million lose their cents")
-def test_money_keeps_cents_on_small_amounts():
-  assert money(187.42) == "$187.42"
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (187.42, "$187.42"),
+        (0.4, "$0.40"),
+        (250, "$250.00"),
+        (999.994, "$999.99"),
+        (-12.5, "-$12.50"),
+    ],
+)
+def test_money_keeps_cents_below_one_thousand(value, expected):
+  assert money(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [(1000, "$1,000"), (1234.56, "$1,235"), (999_999, "$999,999"), (-45_000.4, "-$45,000")],
+)
+def test_money_shows_whole_dollars_from_one_thousand_to_one_million(value, expected):
+  assert money(value) == expected
+
+
+@pytest.mark.parametrize("value", [float("inf"), float("-inf"), 10**400])
+def test_values_too_large_to_format_render_as_na(value):
+  assert money(value) == "n/a"
 
 
 def test_pct_renders_a_fraction_as_a_percentage():

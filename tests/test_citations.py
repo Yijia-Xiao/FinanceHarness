@@ -88,9 +88,6 @@ def test_leaked_end_of_report_note_is_removed(cache):
   assert text == "Revenue rose [1].\n\n" + REFERENCES
 
 
-@pytest.mark.xfail(
-    strict=False, reason="text after a line reading only References is cut from the report"
-)
 def test_sections_after_a_line_reading_references_are_kept(cache):
   report = (
       "Revenue rose [1].\n\n"

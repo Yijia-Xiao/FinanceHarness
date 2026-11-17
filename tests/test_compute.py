@@ -88,7 +88,6 @@ def test_calc_tool_turns_a_bad_expression_into_a_tool_error(registry):
   assert "division by zero" in result.markdown
 
 
-@pytest.mark.xfail(strict=False, reason="chained powers bypass the calc exponent limit")
 def test_calc_refuses_chained_powers_that_exceed_the_exponent_limit():
   with pytest.raises(ToolError):
     safe_eval("(10 ** 1000) ** 1000")
@@ -317,9 +316,6 @@ def test_var_is_zero_when_the_tail_is_a_gain(registry):
   assert out["historical_var_pct"] == 0.0
 
 
-@pytest.mark.xfail(
-    strict=False, reason="VaR on prices with no usable return fails with an internal error"
-)
 def test_var_without_any_usable_return_is_an_input_error(registry):
   result = call(registry, "compute_risk_var", prices=[0, 0, 0, 0, 0])
   assert not result.ok
