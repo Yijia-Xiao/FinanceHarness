@@ -4,7 +4,7 @@ A versioned `text/event-stream`. Frames are ``event: <type>\\ndata:
 <json>\\n\\n``.
 
 Event sequence (research stream):
-  run_start    {version, question, equity, mode} once, first
+  run_start    {version, question, mode} once, first
   round_start  {round}                          per agent round
   reasoning    {text}                           thinking delta (streamed)
   tool_call    {name, call_id, args, round}     per tool invocation

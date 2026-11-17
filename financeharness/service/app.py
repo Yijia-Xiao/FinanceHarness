@@ -67,9 +67,6 @@ class ResearchRequest(BaseModel):
   """Request body for one research turn, sync or streamed."""
 
   question: str = Field(Ellipsis, min_length=1, description="The research question.")
-  equity: bool = Field(
-      False, description="(Legacy) enable equity tools; prefer `mode`."
-  )
   mode: str | None = Field(
       None,
       description=(
@@ -213,7 +210,6 @@ async def _event_stream(
       traj = await run_research(
           req.question,
           profile=profile,
-          equity=req.equity,
           mode=req.mode,
           history=history,
           clarifications=req.clarifications,
@@ -238,8 +234,7 @@ async def _event_stream(
       {
           "version": SSE_VERSION,
           "question": req.question,
-          "equity": req.equity,
-          "mode": resolve_mode(req.mode, equity=req.equity),
+          "mode": resolve_mode(req.mode),
       },
   )
   try:
@@ -390,7 +385,6 @@ async def research(req: ResearchRequest):
   traj = await run_research(
       req.question,
       profile=profile,
-      equity=req.equity,
       mode=req.mode,
       history=history,
       clarifications=req.clarifications,

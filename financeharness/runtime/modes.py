@@ -56,14 +56,13 @@ def get_mode(name):
   return MODES.get((name or "").strip().lower(), MODES[DEFAULT_MODE])
 
 
-def resolve_mode(name, *, equity = False):
-  """Effective mode name from an explicit `name` or the legacy `equity` flag.
+def resolve_mode(name):
+  """Effective mode name from an explicit `name`, else web-first research.
 
   The single source the ``run_start`` frame and the agent's prompt variant both
   use, so the advertised mode always matches the one that runs. An explicit name
-  wins (normalized; unknown → the default mode); otherwise the legacy `equity`
-  flag picks analytical, else web-first research.
+  is normalized (unknown → the default mode).
   """
   if name and name.strip():
     return get_mode(name).name
-  return "analytical" if equity else "research"
+  return "research"
