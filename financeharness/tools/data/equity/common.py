@@ -2,7 +2,7 @@
 
 A single async wrapper runs the blocking yfinance call in a thread under the
 runtime's transient-retry policy; provider-tagging + money formatting live here
-too. yfinance is flaky (rate limits, transport blips) — transient shapes retry,
+too. yfinance is flaky (rate limits, transport blips): transient shapes retry,
 everything else (bad ticker) surfaces as an actionable tool error.
 """
 
@@ -29,7 +29,7 @@ __all__ = [
 ]
 
 PROVIDER = "yfinance"
-# Max length for a ticker request field — permissive enough for suffixed foreign
+# Max length for a ticker request field: permissive enough for suffixed foreign
 # listings (e.g. 005930.KS, RDSA.AS); shared so every equity tool agrees.
 TICKER_MAX_LEN = 24
 
@@ -48,10 +48,10 @@ def is_num(v: Any) -> bool:
 
 
 def df_cell(v: Any) -> float | None:
-  """A DataFrame cell as a float, or ``None`` when it's NaN/absent — the JSON-safe
+  """A DataFrame cell as a float, or ``None`` when it's NaN/absent.
 
-  coercion for yfinance frames (a raw NaN must not reach the structured
-  payload).
+  The JSON-safe coercion for yfinance frames (a raw NaN must not reach the
+  structured payload).
   """
   return float(v) if is_num(v) else None
 

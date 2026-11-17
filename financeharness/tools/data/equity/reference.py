@@ -1,4 +1,4 @@
-"""data.equity.reference — identity / classification / market snapshot."""
+"""data.equity.reference: identity / classification / market snapshot."""
 
 from __future__ import annotations
 
@@ -62,20 +62,20 @@ def _markdown(d):
   shares_str = money(shares).lstrip("$") if shares else "n/a"
   lines = [
       (
-          f"**{name}** ({d.get('ticker')}) — {d.get('exchange', '?')} ·"
+          f"**{name}** ({d.get('ticker')}): {d.get('exchange', '?')},"
           f" {d.get('currency', '?')}"
       ),
       (
-          f"Sector: {d.get('sector', 'n/a')} / {d.get('industry', 'n/a')} · "
+          f"Sector: {d.get('sector', 'n/a')} / {d.get('industry', 'n/a')}; "
           f"Country: {d.get('country', 'n/a')}"
       ),
       (
-          f"Market cap: {money(d.get('marketCap'))} · Shares out: {shares_str}"
-          f" · Beta: {num(d.get('beta'))}"
+          f"Market cap: {money(d.get('marketCap'))}; Shares out: {shares_str}"
+          f"; Beta: {num(d.get('beta'))}"
       ),
       (
-          f"Price: {num(d.get('currentPrice'))} · 52w:"
-          f" {num(d.get('fiftyTwoWeekLow'))}–{num(d.get('fiftyTwoWeekHigh'))} ·"
+          f"Price: {num(d.get('currentPrice'))}; 52w:"
+          f" {num(d.get('fiftyTwoWeekLow'))}–{num(d.get('fiftyTwoWeekHigh'))};"
           " P/E (ttm/fwd):"
           f" {num(d.get('trailingPE'))}/{num(d.get('forwardPE'))}"
       ),
@@ -98,7 +98,7 @@ async def _handler(req):
   if not info or not (
       info.get("shortName") or info.get("longName") or info.get("marketCap")
   ):
-    raise ToolError(f"no reference data for '{ticker}' — check the ticker")
+    raise ToolError(f"no reference data for '{ticker}': check the ticker")
   curated = _curate(info, ticker)
   return ToolResponse(
       markdown=_markdown(curated),

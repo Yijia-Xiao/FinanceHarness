@@ -1,10 +1,9 @@
-"""data.market.rates — the US Treasury yield curve (the risk-free backdrop).
+"""data.market.rates: the US Treasury yield curve (the risk-free backdrop).
 
 3-month, 5-, 10-, and 30-year Treasury yields (yfinance ^IRX/^FVX/^TNX/^TYX).
-The
-10-year is the canonical risk-free rate for CAPM/WACC — exposed both as a
-percent
-and as a decimal ready to chain into compute.valuation.wacc. Numbers only.
+The 10-year is the canonical risk-free rate for CAPM/WACC, exposed both as a
+percent and as a decimal ready to chain into compute.valuation.wacc. Numbers
+only.
 """
 
 from __future__ import annotations
@@ -18,7 +17,7 @@ from financeharness.tools.data.equity.common import PROVIDER, num
 from financeharness.tools.data.market.quotes import last_quote
 
 _DESCRIPTION = (
-    "US Treasury yield curve — 3-month, 5-, 10-, and 30-year yields (percent)."
+    "US Treasury yield curve: 3-month, 5-, 10-, and 30-year yields (percent)."
     " The 10-year is the standard risk-free rate for CAPM/WACC; it's also"
     " returned as a decimal (risk_free_rate) ready to chain into"
     " compute.valuation.wacc. Use for the rate backdrop and to ground a"
@@ -60,7 +59,7 @@ async def _handler(_req):
           round(ten_year / 100, 5) if ten_year is not None else None
       ),
   }
-  line = " · ".join(
+  line = ", ".join(
       f"{label} {num(tenors[label])}%" for label in _TENORS if label in tenors
   )
   rf = (

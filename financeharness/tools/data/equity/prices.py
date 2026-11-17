@@ -1,4 +1,4 @@
-"""data.equity.prices — OHLCV history + derived technicals.
+"""data.equity.prices: OHLCV history + derived technicals.
 
 `bars` is the stable chaining surface (`prev:<id>.bars` into the risk tools,
 which read each bar's date and `adj_close`). Each bar's `close` is the price
@@ -23,7 +23,7 @@ from financeharness.tools.data.equity.common import PROVIDER, TICKER_MAX_LEN, is
 
 _VALID_PERIODS = ("1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max")
 _VALID_INTERVALS = ("1d", "5d", "1wk", "1mo")
-# Bars per year by interval — annualizes realized volatility correctly for
+# Bars per year by interval: annualizes realized volatility correctly for
 # non-daily bars (1d ≈ 252 trading days, 5d ≈ 50, 1wk = 52, 1mo = 12).
 _BARS_PER_YEAR = {"1d": 252, "5d": 50, "1wk": 52, "1mo": 12}
 _RECENT_ROWS = 8
@@ -143,13 +143,13 @@ def _build(ticker, rows, interval):
       f"  {r['date']}: {num(r['close'])} (adj {num(r['adj_close'])})"
       for r in rows[-_RECENT_ROWS:]
   )
-  cross = f" · {structured['last_cross']} cross" if structured["last_cross"] else ""
+  cross = f", {structured['last_cross']} cross" if structured["last_cross"] else ""
   md = (
-      f"**{ticker}** — {len(rows)} bars · current"
+      f"**{ticker}**: {len(rows)} bars, current"
       f" {num(closes[-1])}\nSMA20/50/200:"
       f" {num(sma['20'])}/{num(sma['50'])}/{num(sma['200'])}{cross}\nRealized"
       f" vol: per-bar {num(per_bar, 4)}, annualized {num(annualized, 3)}"
-      f" (×√{bars_per_year}) · range"
+      f" (×√{bars_per_year}), range"
       f" {num(structured['low'])}–{num(structured['high'])}\nRecent"
       f" closes as traded (dividend-adjusted):\n{recent}"
   )
@@ -191,7 +191,7 @@ async def _handler(req):
 
   rows = await yf_call(lambda: asyncio.to_thread(_sync))
   if not rows:
-    raise ToolError(f"no price data for '{ticker}' — check the ticker / period")
+    raise ToolError(f"no price data for '{ticker}': check the ticker / period")
   return _build(ticker, rows, req.interval)
 
 

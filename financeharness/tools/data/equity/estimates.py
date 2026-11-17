@@ -1,12 +1,11 @@
-"""data.equity.estimates — analyst consensus: price targets, forward estimates, ratings.
+"""data.equity.estimates: analyst consensus (price targets, forward estimates, ratings).
 
 The forward-looking, sell-side view yfinance exposes: analyst price targets
 (current/mean/median/high/low), consensus EPS and revenue estimates by period
 (current & next quarter, current & next fiscal year, with analyst counts and
-growth), and
-the latest buy/hold/sell recommendation spread. Numbers only — and clearly
-marked as
-*estimates*, which the model presents as consensus expectations, not facts.
+growth), and the latest buy/hold/sell recommendation spread. Numbers only, and
+clearly marked as *estimates*, which the model presents as consensus
+expectations, not facts.
 """
 
 from __future__ import annotations
@@ -33,7 +32,7 @@ _DESCRIPTION = (
     " vs current), forward EPS estimates (mean, low/high, analyst counts, growth)"
     " and revenue estimates (mean, growth) by period (current & next quarter,"
     " current & next fiscal year), and the latest buy/hold/sell recommendation"
-    " spread. Forward-looking sell-side estimates, not reported results — present"
+    " spread. Forward-looking sell-side estimates, not reported results: present"
     " as consensus expectations."
 )
 _PERIODS = ("0q", "+1q", "0y", "+1y")  # current Q, next Q, current FY, next FY
@@ -94,7 +93,7 @@ def _markdown(
   lines = [f"**{ticker}** analyst consensus:"]
   if pt:
     lines.append(
-        f"Price target — mean {money(pt.get('mean'))} (median"
+        f"Price target: mean {money(pt.get('mean'))} (median"
         f" {money(pt.get('median'))},"
         f" {money(pt.get('low'))}–{money(pt.get('high'))}) vs current"
         f" {money(pt.get('current'))}"
@@ -107,14 +106,14 @@ def _markdown(
       n = int(e["num_analysts"]) if e.get("num_analysts") else "n/a"
       lines.append(
           f"  {e['period']}: EPS {num(e.get('avg'))} (n={n}, "
-          f"growth {pct(e.get('growth'))}) · revenue {money(r.get('avg'))}"
+          f"growth {pct(e.get('growth'))}), revenue {money(r.get('avg'))}"
       )
   if rec:
     total = sum(rec.values()) or 1
     buys = rec.get("strong_buy", 0) + rec.get("buy", 0)
     lines.append(
-        f"Ratings — {rec.get('strong_buy', 0)} strong buy · {rec.get('buy', 0)}"
-        f" buy · {rec.get('hold', 0)} hold · {rec.get('sell', 0)} sell ·"
+        f"Ratings: {rec.get('strong_buy', 0)} strong buy, {rec.get('buy', 0)}"
+        f" buy, {rec.get('hold', 0)} hold, {rec.get('sell', 0)} sell,"
         f" {rec.get('strong_sell', 0)} strong sell ({pct(buys / total)}"
         " bullish)"
     )
@@ -138,7 +137,7 @@ async def _handler(req):
   pt_raw, eps_df, rev_df, rec_df = await yf_call(
       lambda: asyncio.to_thread(_sync)
   )
-  # keep only real numbers — NaN would poison the JSON-serialized structured payload
+  # keep only real numbers: NaN would poison the JSON-serialized structured payload
   pt = (
       {
           k: pt_raw[k]
@@ -162,7 +161,7 @@ async def _handler(req):
   rec = _recommendation(rec_df)
 
   if not pt and not eps and not rec:
-    raise ToolError(f"no analyst estimates for '{ticker}' — check the ticker")
+    raise ToolError(f"no analyst estimates for '{ticker}': check the ticker")
 
   return ToolResponse(
       markdown=_markdown(ticker, pt, eps, rev, rec),

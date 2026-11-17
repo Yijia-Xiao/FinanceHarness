@@ -1,6 +1,7 @@
-"""Shared quote helper for the market-data tools — last close + day change% for an
+"""Shared quote helper for the market-data tools.
 
-index/yield symbol, via the equity tools' yfinance retry wrapper.
+Last close + day change% for an index/yield symbol, via the equity tools'
+yfinance retry wrapper.
 """
 
 from __future__ import annotations

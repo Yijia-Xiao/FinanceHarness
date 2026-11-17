@@ -1,7 +1,7 @@
-"""data.market.indices — major US equity indices + the VIX.
+"""data.market.indices: major US equity indices + the VIX.
 
 The market backdrop for equity research: S&P 500, Nasdaq Composite, Dow, Russell
-2000, and the VIX volatility index — last level + day change. Use to frame a
+2000, and the VIX volatility index: last level + day change. Use to frame a
 single name against the broad market and the volatility regime. Numbers only.
 """
 
@@ -17,7 +17,7 @@ from financeharness.tools.data.market.quotes import last_quote
 
 _DESCRIPTION = (
     "Major US market indices + volatility: S&P 500, Nasdaq Composite, Dow"
-    " Jones, Russell 2000, and the VIX — last level and day change. Use to"
+    " Jones, Russell 2000, and the VIX: last level and day change. Use to"
     " frame an equity against the broad market and the current volatility"
     " regime."
 )
