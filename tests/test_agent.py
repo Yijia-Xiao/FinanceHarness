@@ -242,10 +242,6 @@ def test_run_of_blank_replies_ends_as_empty_answer(tmp_path):
   assert len(client.requests) == 3
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Gemini tool calls without an id share one id, so prev: reads the wrong result",
-)
 def test_tool_calls_without_provider_ids_get_distinct_ids_across_rounds(tmp_path):
   client = ScriptedGeminiClient([
       ("calc", {"expression": "1+1"}),

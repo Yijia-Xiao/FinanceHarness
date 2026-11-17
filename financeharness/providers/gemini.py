@@ -170,7 +170,7 @@ class GeminiProvider(Provider):
         sig = part.thought_signature
         calls.append(
             ToolCall(
-                id=fc.id or f"call_{len(calls)}",
+                id=fc.id or "",
                 name=fc.name or "",
                 arguments=json.dumps(dict(fc.args or {})),
                 extra=(

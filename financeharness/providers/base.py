@@ -30,7 +30,8 @@ class ToolCall:
   ``arguments`` is the raw JSON string the model emitted (parsed at dispatch).
   ``extra`` carries opaque provider state that must round-trip — e.g. Gemini's
   ``thought_signature`` — echoed back verbatim on the next turn or multi-turn
-  tool calling fails.
+  tool calling fails. ``id`` is what the API sent, empty when it sent none;
+  the agent loop assigns the id used for the rest of the run.
   """
 
   id: str
