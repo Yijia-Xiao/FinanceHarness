@@ -21,6 +21,10 @@ class SeriesRequest(BaseModel):
   label: str = ""
 
 
+class BarsRequest(BaseModel):
+  bars: list[dict]
+
+
 class GridRequest(BaseModel):
   rows: list[list[float]]
 
@@ -59,6 +63,7 @@ def registry(series_handler):
   reg = ToolRegistry()
   reg.register(make_tool("series", SeriesRequest, series_handler))
   reg.register(make_tool("grid", GridRequest, Recorder()))
+  reg.register(make_tool("bars", BarsRequest, Recorder()))
   reg.register(make_tool("wide", WideRequest, Recorder()))
   for spec in COMPUTE_SPECS:
     reg.register(spec)
@@ -250,17 +255,19 @@ def test_result_of_one_call_feeds_a_compute_tool(registry):
     asset.append(asset[-1] * (1 + 1.5 * (cur / prev - 1)))
 
   for call_id, values in (("c1", asset), ("c2", benchmark)):
+    bars = [
+        {"date": f"2026-03-{day:02d}", "close": v, "adj_close": v, "volume": 1}
+        for day, v in enumerate(values, start=2)
+    ]
     stored = run(
-        dispatch(
-            "series", {"values": values}, registry=registry, session_state=state, call_id=call_id
-        )
+        dispatch("bars", {"bars": bars}, registry=registry, session_state=state, call_id=call_id)
     )
     assert f"prev:{call_id}." in stored.markdown
 
   result = run(
       dispatch(
           "compute_risk_beta",
-          {"asset_prices": "prev:c1.values", "benchmark_prices": "prev:c2.values"},
+          {"asset_prices": "prev:c1.bars", "benchmark_prices": "prev:c2.bars"},
           registry=registry,
           session_state=state,
           call_id="c3",
@@ -269,6 +276,26 @@ def test_result_of_one_call_feeds_a_compute_tool(registry):
   assert result.ok
   assert result.structured["beta"] == pytest.approx(1.5)
   assert state.tool_results["c3"] == result.structured
+
+  matrix = run(
+      dispatch(
+          "compute_risk_correlation",
+          {"series": {"A": "prev:c1.bars", "B": "prev:c2.bars"}},
+          registry=registry,
+          session_state=state,
+      )
+  )
+  assert matrix.structured["matrix"]["A"]["B"] == pytest.approx(1.0)
+
+  wrapped = run(
+      dispatch(
+          "compute_risk_beta",
+          {"asset_prices": ["prev:c1.bars"], "benchmark_prices": ["prev:c2.bars"]},
+          registry=registry,
+          session_state=state,
+      )
+  )
+  assert wrapped.structured["beta"] == pytest.approx(1.5)
 
 
 def test_result_is_not_stored_or_footed_without_a_call_id(registry):

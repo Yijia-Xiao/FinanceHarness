@@ -181,7 +181,9 @@ structured payload. When a later tool needs bulk data from an earlier call, pass
 a reference `prev:<call_id>.<path>` instead of restating the data — the runtime \
 resolves it against the prior payload before the downstream schema validates. \
 Path syntax: `.field` (dict key), `[N]` (index), `[*]` (map over a list). For a \
-tool taking several series, pass a list of references. If a reference can't be \
+tool taking several series, pass a list of references. A price series goes to \
+the risk tools whole, as `prev:<call_id>.bars`: they pair series by each bar's \
+date and read `adj_close`. If a reference can't be \
 resolved, the tool result names what was available — adjust on the next turn."""
 
 

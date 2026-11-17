@@ -1,11 +1,12 @@
 """data.equity.prices — OHLCV history + derived technicals.
 
-`bars[*]` is the stable chaining surface (`prev:<id>.bars[*].adj_close` into
-compute tools). Each bar's `close` is the price as traded (Yahoo adjusts it for
-splits only); `adj_close` is also adjusted for dividends. Quoted prices are
-as traded; the technicals run on `adj_close`, so a dividend's price drop isn't
-read as a loss. Derived measures: SMA(20/50/200), golden/death cross, realized
-volatility (per-bar stdev and annualized to the bar interval, factor shown).
+`bars` is the stable chaining surface (`prev:<id>.bars` into the risk tools,
+which read each bar's date and `adj_close`). Each bar's `close` is the price
+as traded (Yahoo adjusts it for splits only); `adj_close` is also adjusted for
+dividends. Quoted prices are as traded; the technicals run on `adj_close`, so
+a dividend's price drop isn't read as a loss. Derived measures: SMA(20/50/200),
+golden/death cross, realized volatility (per-bar stdev and annualized to the
+bar interval, factor shown).
 No interpretive tier labels; the model owns interpretation.
 """
 
@@ -32,8 +33,8 @@ _DESCRIPTION = (
     " SMA(20/50/200), golden/death cross, realized volatility (annualized to the"
     " bar interval), and the period high/low range. Each bar has close (the"
     " price as traded, adjusted for splits only) and adj_close (also adjusted"
-    " for dividends): quote close for a price on a date, and chain"
-    " bars[*].adj_close into return-based compute tools."
+    " for dividends): quote close for a price on a date, and chain bars whole"
+    " (prev:<call_id>.bars) into the risk tools."
 )
 
 
