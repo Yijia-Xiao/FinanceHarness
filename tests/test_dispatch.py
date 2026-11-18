@@ -1,5 +1,7 @@
 """Tool dispatch: argument repair, prev: reference resolution, validation, error mapping."""
 
+import datetime
+import json
 import sys
 
 import pytest
@@ -10,6 +12,7 @@ from financeharness.runtime.dispatch import dispatch, dispatch_json_args
 from financeharness.runtime.tool_registry import (
   ToolError,
   ToolRegistry,
+  ToolResponse,
   ToolSessionState,
 )
 from financeharness.tools.compute import COMPUTE_SPECS
@@ -363,3 +366,77 @@ def test_non_finite_numbers_are_rejected_before_a_compute_tool_runs(registry, to
   args = f'{{"fcf_schedule": [100, {token}], "discount_rate": 0.1, "terminal_growth_rate": 0.02}}'
   result = run(dispatch_json_args("compute_valuation_dcf", args, registry=registry))
   assert not result.ok
+
+
+def run_leaky(payload, state):
+  """Dispatch a tool whose handler returns ``payload`` as its response fields."""
+
+  async def handler(req):
+    return ToolResponse(markdown="ok", **payload)
+
+  reg = ToolRegistry()
+  reg.register(make_tool("leaky", SeriesRequest, handler))
+  return run(dispatch("leaky", {"values": [1]}, registry=reg, session_state=state, call_id="c1"))
+
+
+def test_non_finite_and_foreign_numbers_in_a_tool_payload_are_made_json_safe():
+  class Scalar(float):
+    """Stands in for a numeric scalar type of another library."""
+
+  payload = {
+      "structured": {"pe": float("nan"), "rows": (1.0, float("inf")), "n": Scalar(2.5)},
+      "meta": {"elapsed": float("-inf")},
+  }
+  state = ToolSessionState()
+
+  result = run_leaky(payload, state)
+
+  assert result.ok
+  assert result.structured == {"pe": None, "rows": [1.0, None], "n": 2.5}
+  assert type(result.structured["n"]) is float
+  assert result.meta["elapsed"] is None
+  assert state.tool_results["c1"] == result.structured
+  json.dumps(result.to_log(), allow_nan=False)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"structured": {"value": complex(1, 2)}},
+        {"structured": {"when": datetime.date(2026, 3, 2)}},
+        {"structured": {"ok": 1}, "meta": {"tags": {"a", "b"}}},
+    ],
+)
+def test_tool_payload_json_cannot_carry_is_an_error_and_is_not_stored(payload):
+  state = ToolSessionState()
+
+  result = run_leaky(payload, state)
+
+  assert result.structured == {"error": "handler_response_invalid"}
+  assert "cannot be recorded" in result.markdown
+  assert state.tool_results == {}
+  json.dumps(result.to_log(), allow_nan=False)
+
+
+@pytest.mark.parametrize(
+    "args_json",
+    [
+        '{"values": [1, NaN]}',
+        '{"values": [Infinity]}',
+        '{"values": [-Infinity]}',
+        '{"values": [1e400]}',
+        '{"values": [1], "label": "\\ud83d"}',
+    ],
+)
+def test_arguments_with_non_finite_numbers_are_not_valid_json(registry, series_handler, args_json):
+  result = run(dispatch_json_args("series", args_json, registry=registry))
+  assert result.structured == {"error": "args_not_json"}
+  assert result.args == {"_raw": args_json}
+  assert series_handler.calls == 0
+  json.dumps(result.to_log(), allow_nan=False)
+
+
+def test_stringified_list_with_a_non_finite_number_is_not_repaired(registry, series_handler):
+  result = run(dispatch("series", {"values": "[1, NaN]"}, registry=registry))
+  assert result.structured == {"error": "schema_validation"}
+  assert series_handler.calls == 0

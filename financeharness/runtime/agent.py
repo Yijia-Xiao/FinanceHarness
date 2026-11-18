@@ -13,7 +13,6 @@ onto the marked seams without changing this shape.
 from __future__ import annotations
 
 import asyncio
-import json
 import time
 from collections.abc import Callable
 from typing import Any
@@ -24,6 +23,7 @@ from financeharness.runtime import recovery
 from financeharness.runtime.config import load_runtime_config
 from financeharness.runtime.context_budget import over_budget
 from financeharness.runtime.dispatch import dispatch_json_args
+from financeharness.runtime.jsonutil import loads_strict
 from financeharness.runtime.prompts import (
   EMPTY_REPLY_PROMPT,
   GROUNDING_REVIEW_PROMPT,
@@ -42,8 +42,8 @@ def _tool_args(raw):
   transcript. Best-effort: malformed / non-object args surface as ``{}``.
   """
   try:
-    data = json.loads(raw) if raw else {}
-  except (ValueError, TypeError):
+    data = loads_strict(raw) if raw else {}
+  except (ValueError, TypeError, RecursionError):
     return {}
   return data if isinstance(data, dict) else {}
 

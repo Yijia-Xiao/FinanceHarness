@@ -26,7 +26,9 @@ def registry():
 
 
 def call(registry, name, **args):
-  return run(dispatch(name, args, registry=registry))
+  result = run(dispatch(name, args, registry=registry))
+  json.dumps(result.to_log(), allow_nan=False)  # every result is strict JSON
+  return result
 
 
 def compound(start, returns):
@@ -132,12 +134,23 @@ def test_calc_shows_and_saves_the_largest_integers_it_accepts(registry):
   json.dumps(result.to_log())
 
 
-@pytest.mark.xfail(
-    strict=True, reason="calc returns complex numbers, which cannot be saved in a trajectory"
+@pytest.mark.parametrize(
+    ("expression", "reason"),
+    [
+        ("(-8) ** (1 / 3)", "no real result"),
+        ("abs((-8) ** (1 / 3))", "no real result"),
+        ("(-0.5) ** 0.5 + 1", "no real result"),
+        ("1e308 * 10", "not finite"),
+        ("1e400", "not finite"),
+        ("1 / 1e400", "not finite"),
+        ("min(1e400, 5)", "not finite"),
+        ("1e308 * 10 - 1e308 * 10", "not finite"),
+    ],
 )
-def test_calc_result_can_always_be_saved_as_json(registry):
-  result = call(registry, "calc", expression="(-8) ** (1 / 3)")
-  json.dumps(result.to_log())
+def test_calc_refuses_values_that_are_not_finite_real_numbers(registry, expression, reason):
+  result = call(registry, "calc", expression=expression)
+  assert result.structured == {"error": "tool_error"}
+  assert reason in result.markdown
 
 
 def test_cost_of_equity_follows_capm(registry):

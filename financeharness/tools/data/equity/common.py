@@ -8,6 +8,7 @@ everything else (bad ticker) surfaces as an actionable tool error.
 
 from __future__ import annotations
 
+import math
 import numbers
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -34,14 +35,16 @@ TICKER_MAX_LEN = 24
 
 
 def is_num(v: Any) -> bool:
-  """True for a real, non-NaN number — the guard before any arithmetic.
+  """True for a real, finite number: the guard before any arithmetic.
 
   yfinance returns ``float('nan')`` for absent fields (and numpy scalars from
   its DataFrames), which must not flow into math or the JSON-serialized
   structured payload. ``numbers.Real`` covers both Python and numpy numerics;
   bool is excluded.
   """
-  return isinstance(v, numbers.Real) and not isinstance(v, bool) and v == v
+  return (
+      isinstance(v, numbers.Real) and not isinstance(v, bool) and math.isfinite(v)
+  )
 
 
 def df_cell(v: Any) -> float | None:

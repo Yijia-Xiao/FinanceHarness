@@ -79,7 +79,19 @@ def _check_pow(left, right):
 
 
 def _eval(node):
-  """Recursively evaluate a parsed expression, allowing only safe nodes."""
+  """Evaluate a parsed expression; every value on the way is a finite real number."""
+  value = _eval_node(node)
+  if isinstance(value, complex):
+    raise ToolError(
+        "no real result: a negative number is raised to a fractional power"
+    )
+  if isinstance(value, float) and not math.isfinite(value):
+    raise ToolError("out of range: a value in the expression is not finite")
+  return value
+
+
+def _eval_node(node):
+  """Evaluate one node, allowing only safe node types."""
   if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
     return node.value
   if isinstance(node, ast.BinOp) and type(node.op) in _BIN_OPS:

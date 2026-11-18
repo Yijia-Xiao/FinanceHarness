@@ -14,12 +14,13 @@ with those tools, not here — this module is the registry path only.)
 
 from __future__ import annotations
 
-import json
 import types
 import typing
 from typing import Union
 
 from pydantic import BaseModel
+
+from financeharness.runtime.jsonutil import loads_strict
 
 _CONTAINER_ORIGINS = (list, dict, tuple, set, frozenset)
 # `X | None` → types.UnionType; `Optional[X]`/`Union[...]` → typing.Union.
@@ -106,8 +107,8 @@ def coerce_stringified_json(args, schema):
     if not s or s[0] not in "[{":
       continue
     try:
-      out[name] = json.loads(s)
-    except (json.JSONDecodeError, ValueError):
+      out[name] = loads_strict(s)
+    except ValueError:
       continue  # leave as-is; Pydantic surfaces the error
   return out
 
