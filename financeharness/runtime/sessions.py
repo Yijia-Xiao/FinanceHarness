@@ -15,10 +15,10 @@ from __future__ import annotations
 
 
 def strip_system(messages):
-  """Conversation history minus any system message (the next turn adds its own)."""
-  return [m for m in messages or [] if m.get("role") != "system"]
+    """Conversation history minus any system message (the next turn adds its own)."""
+    return [m for m in messages or [] if m.get("role") != "system"]
 
 
 def is_committable(termination):
-  """True only for a cleanly-answered turn (the no-poison-on-error guard)."""
-  return termination == "answer"
+    """True only for a cleanly-answered turn (the no-poison-on-error guard)."""
+    return termination == "answer"

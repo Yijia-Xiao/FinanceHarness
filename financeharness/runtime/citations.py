@@ -36,82 +36,76 @@ _CODE_RE = re.compile(r"```.*?```|`[^`\n]+`", flags=re.DOTALL)
 
 
 def _markers(body):
-  """Citation marker matches in ``body`` outside code."""
-  code = [m.span() for m in _CODE_RE.finditer(body)]
-  return [
-      m
-      for m in _BRACKET_RE.finditer(body)
-      if not any(start <= m.start("digits") < end for start, end in code)
-  ]
+    """Citation marker matches in ``body`` outside code."""
+    code = [m.span() for m in _CODE_RE.finditer(body)]
+    return [
+        m
+        for m in _BRACKET_RE.finditer(body)
+        if not any(start <= m.start("digits") < end for start, end in code)
+    ]
 
 
 def format_references_block(citations):
-  """Render the bibliography: ``[N] title`` + ``    url`` per source."""
-  lines: list[str] = []
-  for c in citations:
-    title = getattr(c, "title", None) or getattr(c, "url", "") or "(untitled)"
-    url = getattr(c, "url", "")
-    lines.append(f"[{c.index}] {title}")
-    if url:
-      lines.append(f"    {url}")
-  return "\n".join(lines)
+    """Render the bibliography: ``[N] title`` + ``    url`` per source."""
+    lines: list[str] = []
+    for c in citations:
+        title = getattr(c, "title", None) or getattr(c, "url", "") or "(untitled)"
+        url = getattr(c, "url", "")
+        lines.append(f"[{c.index}] {title}")
+        if url:
+            lines.append(f"    {url}")
+    return "\n".join(lines)
 
 
-def validate_and_append_references(
-    prediction, citations
-):
-  """Validate inline markers, strip orphans + model-written refs, and append
+def validate_and_append_references(prediction, citations):
+    """Validate inline markers, strip orphans + model-written refs, and append
 
-  the canonical ``## References`` block. Returns ``(text, stats)``.
-  """
-  m = _REF_SECTION_RE.search(prediction)
-  body = (prediction[: m.start()] if m else prediction).rstrip()
-  body = _EOM_LEAK_RE.sub("", body).rstrip()
+    the canonical ``## References`` block. Returns ``(text, stats)``.
+    """
+    m = _REF_SECTION_RE.search(prediction)
+    body = (prediction[: m.start()] if m else prediction).rstrip()
+    body = _EOM_LEAK_RE.sub("", body).rstrip()
 
-  n_refs = len(citations)
-  cited: set[int] = set()
-  for match in _markers(body):
-    for n in match.group("digits").split(","):
-      with_int = n.strip()
-      if with_int.isdigit():
-        cited.add(int(with_int))
-
-  detected_orphans = sorted(n for n in cited if n < 1 or n > n_refs)
-  valid_cited = sorted(n for n in cited if 1 <= n <= n_refs)
-
-  if detected_orphans:
-    parts: list[str] = []
-    pos = 0
+    n_refs = len(citations)
+    cited: set[int] = set()
     for match in _markers(body):
-      nums = [
-          d.strip()
-          for d in match.group("digits").split(",")
-          if 1 <= int(d.strip()) <= n_refs
-      ]
-      parts.append(body[pos : match.start()])
-      if nums:
-        parts.append(f"{match.group('lead')}[{', '.join(nums)}]")
-      pos = match.end()
-    parts.append(body[pos:])
-    body = "".join(parts)
+        for n in match.group("digits").split(","):
+            with_int = n.strip()
+            if with_int.isdigit():
+                cited.add(int(with_int))
 
-  if not citations:
-    return body + "\n", {
-        "n_refs": 0,
+    detected_orphans = sorted(n for n in cited if n < 1 or n > n_refs)
+    valid_cited = sorted(n for n in cited if 1 <= n <= n_refs)
+
+    if detected_orphans:
+        parts: list[str] = []
+        pos = 0
+        for match in _markers(body):
+            nums = [
+                d.strip() for d in match.group("digits").split(",") if 1 <= int(d.strip()) <= n_refs
+            ]
+            parts.append(body[pos : match.start()])
+            if nums:
+                parts.append(f"{match.group('lead')}[{', '.join(nums)}]")
+            pos = match.end()
+        parts.append(body[pos:])
+        body = "".join(parts)
+
+    if not citations:
+        return body + "\n", {
+            "n_refs": 0,
+            "n_inline_citations": len(valid_cited),
+            "cited_indices": valid_cited,
+            "n_orphans_stripped": len(detected_orphans),
+            "unused_indices": [],
+        }
+
+    unused = sorted(n for n in range(1, n_refs + 1) if n not in valid_cited)
+    out = body + "\n\n## References\n\n" + format_references_block(citations) + "\n"
+    return out, {
+        "n_refs": n_refs,
         "n_inline_citations": len(valid_cited),
         "cited_indices": valid_cited,
         "n_orphans_stripped": len(detected_orphans),
-        "unused_indices": [],
+        "unused_indices": unused,
     }
-
-  unused = sorted(n for n in range(1, n_refs + 1) if n not in valid_cited)
-  out = (
-      body + "\n\n## References\n\n" + format_references_block(citations) + "\n"
-  )
-  return out, {
-      "n_refs": n_refs,
-      "n_inline_citations": len(valid_cited),
-      "cited_indices": valid_cited,
-      "n_orphans_stripped": len(detected_orphans),
-      "unused_indices": unused,
-  }

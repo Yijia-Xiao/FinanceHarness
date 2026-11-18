@@ -18,12 +18,12 @@ from financeharness.runtime.config import FetchConfig
 
 @dataclass
 class FetchedPage:
-  """Raw fetched page text or a fetch failure reason."""
+    """Raw fetched page text or a fetch failure reason."""
 
-  url: str
-  text: str
-  ok: bool
-  error: str | None = None
+    url: str
+    text: str
+    ok: bool
+    error: str | None = None
 
 
 Fetcher = Callable[[str], Awaitable[FetchedPage]]
@@ -33,9 +33,7 @@ _FETCH_TIMEOUT_S = 30.0
 # Native HTML/PDF parsers (lxml via trafilatura, pdfplumber) are CPU-bound C
 # extensions that corrupt the heap when run in parallel threads. Serialize every
 # parse through one dedicated worker while network fetches stay concurrent.
-_PARSE_POOL = concurrent.futures.ThreadPoolExecutor(
-    max_workers=1, thread_name_prefix="parse"
-)
+_PARSE_POOL = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="parse")
 _PARSE_TIMEOUT_S = 25.0
 
 _BROWSER_UA = (
@@ -56,90 +54,80 @@ _FETCH_BACKOFF_S = 1.5
 
 
 async def _parse(fn, *args):
-  """Run a native parser on the single parse worker."""
-  loop = asyncio.get_running_loop()
-  return await asyncio.wait_for(
-      loop.run_in_executor(_PARSE_POOL, fn, *args), timeout=_PARSE_TIMEOUT_S
-  )
+    """Run a native parser on the single parse worker."""
+    loop = asyncio.get_running_loop()
+    return await asyncio.wait_for(
+        loop.run_in_executor(_PARSE_POOL, fn, *args), timeout=_PARSE_TIMEOUT_S
+    )
 
 
 def _extract_pdf(content):
-  import pdfplumber
+    import pdfplumber
 
-  parts: list[str] = []
-  with pdfplumber.open(io.BytesIO(content)) as pdf:
-    for page in pdf.pages:
-      parts.append(page.extract_text() or "")
-  return "\n".join(parts)
-
-
-def _headers_for(url, sec_user_agent = _SEC_USER_AGENT):
-  """Request headers for ``url``: the declared agent for sec.gov, else the browser's."""
-  host = (urlsplit(url).hostname or "").lower()
-  if host == "sec.gov" or host.endswith(".sec.gov"):
-    return {**_FETCH_HEADERS, "User-Agent": sec_user_agent}
-  return _FETCH_HEADERS
+    parts: list[str] = []
+    with pdfplumber.open(io.BytesIO(content)) as pdf:
+        for page in pdf.pages:
+            parts.append(page.extract_text() or "")
+    return "\n".join(parts)
 
 
-async def _fetch_once(url, timeout, sec_user_agent = _SEC_USER_AGENT):
-  """One GET -> extracted text; retryable failures carry a ``retryable:`` prefix."""
-  import httpx
-  import trafilatura
-
-  try:
-    async with httpx.AsyncClient(
-        follow_redirects=True, timeout=timeout, headers=_headers_for(url, sec_user_agent)
-    ) as client:
-      resp = await client.get(url)
-    if resp.status_code in _RETRY_STATUS:
-      return FetchedPage(
-          url=url, text="", ok=False, error=f"retryable:HTTP {resp.status_code}"
-      )
-    ctype = resp.headers.get("content-type", "").lower()
-    if "pdf" in ctype or url.lower().endswith(".pdf"):
-      text = await _parse(_extract_pdf, resp.content)
-    else:
-      text = await _parse(trafilatura.extract, resp.text)
-    text = (text or "").strip()
-    if not text:
-      return FetchedPage(
-          url=url, text="", ok=False, error="retryable:no extractable content"
-      )
-    return FetchedPage(url=url, text=text, ok=True)
-  except Exception as exc:  # noqa: BLE001 (surfaced as a failed page, never raised)
-    return FetchedPage(
-        url=url,
-        text="",
-        ok=False,
-        error=f"retryable:{type(exc).__name__}: {exc}",
-    )
+def _headers_for(url, sec_user_agent=_SEC_USER_AGENT):
+    """Request headers for ``url``: the declared agent for sec.gov, else the browser's."""
+    host = (urlsplit(url).hostname or "").lower()
+    if host == "sec.gov" or host.endswith(".sec.gov"):
+        return {**_FETCH_HEADERS, "User-Agent": sec_user_agent}
+    return _FETCH_HEADERS
 
 
-async def quick_fetch(
-    url, *, timeout = 8.0, sec_user_agent = _SEC_USER_AGENT
-):
-  """Single-attempt fetch for quick search-result readability validation."""
-  page = await _fetch_once(url, timeout, sec_user_agent)
-  if not page.ok and (page.error or "").startswith("retryable:"):
-    page = FetchedPage(
-        url=url, text="", ok=False, error=page.error[len("retryable:") :]
-    )
-  return page
+async def _fetch_once(url, timeout, sec_user_agent=_SEC_USER_AGENT):
+    """One GET -> extracted text; retryable failures carry a ``retryable:`` prefix."""
+    import httpx
+    import trafilatura
+
+    try:
+        async with httpx.AsyncClient(
+            follow_redirects=True, timeout=timeout, headers=_headers_for(url, sec_user_agent)
+        ) as client:
+            resp = await client.get(url)
+        if resp.status_code in _RETRY_STATUS:
+            return FetchedPage(
+                url=url, text="", ok=False, error=f"retryable:HTTP {resp.status_code}"
+            )
+        ctype = resp.headers.get("content-type", "").lower()
+        if "pdf" in ctype or url.lower().endswith(".pdf"):
+            text = await _parse(_extract_pdf, resp.content)
+        else:
+            text = await _parse(trafilatura.extract, resp.text)
+        text = (text or "").strip()
+        if not text:
+            return FetchedPage(url=url, text="", ok=False, error="retryable:no extractable content")
+        return FetchedPage(url=url, text=text, ok=True)
+    except Exception as exc:  # noqa: BLE001 (surfaced as a failed page, never raised)
+        return FetchedPage(
+            url=url,
+            text="",
+            ok=False,
+            error=f"retryable:{type(exc).__name__}: {exc}",
+        )
 
 
-async def http_fetch(
-    url, *, timeout = _FETCH_TIMEOUT_S, sec_user_agent = _SEC_USER_AGENT
-):
-  """Default fetcher: HTTP GET -> extracted text, retrying transient failures."""
-  page = FetchedPage(url=url, text="", ok=False, error="no attempt")
-  for attempt in range(_FETCH_ATTEMPTS):
+async def quick_fetch(url, *, timeout=8.0, sec_user_agent=_SEC_USER_AGENT):
+    """Single-attempt fetch for quick search-result readability validation."""
     page = await _fetch_once(url, timeout, sec_user_agent)
-    if page.ok or not (page.error or "").startswith("retryable:"):
-      break
-    if attempt < _FETCH_ATTEMPTS - 1:
-      await asyncio.sleep(_FETCH_BACKOFF_S * (attempt + 1))
-  if not page.ok and (page.error or "").startswith("retryable:"):
-    page = FetchedPage(
-        url=url, text="", ok=False, error=page.error[len("retryable:") :]
-    )
-  return page
+    if not page.ok and (page.error or "").startswith("retryable:"):
+        page = FetchedPage(url=url, text="", ok=False, error=page.error[len("retryable:") :])
+    return page
+
+
+async def http_fetch(url, *, timeout=_FETCH_TIMEOUT_S, sec_user_agent=_SEC_USER_AGENT):
+    """Default fetcher: HTTP GET -> extracted text, retrying transient failures."""
+    page = FetchedPage(url=url, text="", ok=False, error="no attempt")
+    for attempt in range(_FETCH_ATTEMPTS):
+        page = await _fetch_once(url, timeout, sec_user_agent)
+        if page.ok or not (page.error or "").startswith("retryable:"):
+            break
+        if attempt < _FETCH_ATTEMPTS - 1:
+            await asyncio.sleep(_FETCH_BACKOFF_S * (attempt + 1))
+    if not page.ok and (page.error or "").startswith("retryable:"):
+        page = FetchedPage(url=url, text="", ok=False, error=page.error[len("retryable:") :])
+    return page

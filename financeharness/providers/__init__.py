@@ -25,19 +25,19 @@ from financeharness.providers.profiles import (
 )
 
 
-def provider_for(profile, client = None):
-  """Build the :class:`Provider` for a profile, dispatching on ``profile.provider``:
+def provider_for(profile, client=None):
+    """Build the :class:`Provider` for a profile, dispatching on ``profile.provider``:
 
-  ``gemini`` → native google-genai, else the OpenAI-compatible Chat Completions
-  provider (works with vLLM / any compatible endpoint + the page reader).
-  """
-  if profile.provider == "gemini":
-    from financeharness.providers.gemini import GeminiProvider
+    ``gemini`` → native google-genai, else the OpenAI-compatible Chat Completions
+    provider (works with vLLM / any compatible endpoint + the page reader).
+    """
+    if profile.provider == "gemini":
+        from financeharness.providers.gemini import GeminiProvider
 
-    return GeminiProvider(profile, client)
-  from financeharness.providers.chat import ChatCompletionsProvider
+        return GeminiProvider(profile, client)
+    from financeharness.providers.chat import ChatCompletionsProvider
 
-  return ChatCompletionsProvider(profile, client)
+    return ChatCompletionsProvider(profile, client)
 
 
 __all__ = [

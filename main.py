@@ -17,4 +17,4 @@ pipeable). Exit code is 0 when the agent produced an answer, 1 otherwise.
 from financeharness.cli import main
 
 if __name__ == "__main__":
-  main()
+    main()

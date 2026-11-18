@@ -39,72 +39,67 @@ _STABLE_FIELDS = (
 
 
 class EquityReferenceRequest(BaseModel):
-  """Input for the equity reference-data tool."""
+    """Input for the equity reference-data tool."""
 
-  ticker: str = Field(
-      Ellipsis,
-      min_length=1,
-      max_length=TICKER_MAX_LEN,
-      description="Public equity ticker (e.g. NVDA, AAPL, 005930.KS).",
-  )
+    ticker: str = Field(
+        Ellipsis,
+        min_length=1,
+        max_length=TICKER_MAX_LEN,
+        description="Public equity ticker (e.g. NVDA, AAPL, 005930.KS).",
+    )
 
 
 def _curate(info, ticker):
-  out = {k: info.get(k) for k in _STABLE_FIELDS if info.get(k) is not None}
-  # canonical identifier under our `ticker` key (yfinance returns it as "symbol").
-  out["ticker"] = (info.get("symbol") or ticker).upper()
-  return out
+    out = {k: info.get(k) for k in _STABLE_FIELDS if info.get(k) is not None}
+    # canonical identifier under our `ticker` key (yfinance returns it as "symbol").
+    out["ticker"] = (info.get("symbol") or ticker).upper()
+    return out
 
 
 def _markdown(d):
-  name = d.get("longName") or d.get("shortName") or d.get("ticker")
-  shares = d.get("sharesOutstanding")
-  shares_str = money(shares).lstrip("$") if shares else "n/a"
-  lines = [
-      (
-          f"**{name}** ({d.get('ticker')}): {d.get('exchange', '?')},"
-          f" {d.get('currency', '?')}"
-      ),
-      (
-          f"Sector: {d.get('sector', 'n/a')} / {d.get('industry', 'n/a')}; "
-          f"Country: {d.get('country', 'n/a')}"
-      ),
-      (
-          f"Market cap: {money(d.get('marketCap'))}; Shares out: {shares_str}"
-          f"; Beta: {num(d.get('beta'))}"
-      ),
-      (
-          f"Price: {num(d.get('currentPrice'))}; 52w:"
-          f" {num(d.get('fiftyTwoWeekLow'))}–{num(d.get('fiftyTwoWeekHigh'))};"
-          " P/E (ttm/fwd):"
-          f" {num(d.get('trailingPE'))}/{num(d.get('forwardPE'))}"
-      ),
-  ]
-  summary = d.get("longBusinessSummary")
-  if summary:
-    lines.append("\n" + summary[:600])
-  return "\n".join(lines)
+    name = d.get("longName") or d.get("shortName") or d.get("ticker")
+    shares = d.get("sharesOutstanding")
+    shares_str = money(shares).lstrip("$") if shares else "n/a"
+    lines = [
+        (f"**{name}** ({d.get('ticker')}): {d.get('exchange', '?')}, {d.get('currency', '?')}"),
+        (
+            f"Sector: {d.get('sector', 'n/a')} / {d.get('industry', 'n/a')}; "
+            f"Country: {d.get('country', 'n/a')}"
+        ),
+        (
+            f"Market cap: {money(d.get('marketCap'))}; Shares out: {shares_str}"
+            f"; Beta: {num(d.get('beta'))}"
+        ),
+        (
+            f"Price: {num(d.get('currentPrice'))}; 52w:"
+            f" {num(d.get('fiftyTwoWeekLow'))}–{num(d.get('fiftyTwoWeekHigh'))};"
+            " P/E (ttm/fwd):"
+            f" {num(d.get('trailingPE'))}/{num(d.get('forwardPE'))}"
+        ),
+    ]
+    summary = d.get("longBusinessSummary")
+    if summary:
+        lines.append("\n" + summary[:600])
+    return "\n".join(lines)
 
 
 async def _handler(req):
-  import yfinance as yf
+    import yfinance as yf
 
-  ticker = req.ticker.upper()
+    ticker = req.ticker.upper()
 
-  async def _fetch():
-    return await asyncio.to_thread(lambda: yf.Ticker(ticker).info)
+    async def _fetch():
+        return await asyncio.to_thread(lambda: yf.Ticker(ticker).info)
 
-  info = await yf_call(_fetch)
-  if not info or not (
-      info.get("shortName") or info.get("longName") or info.get("marketCap")
-  ):
-    raise ToolError(f"no reference data for '{ticker}': check the ticker")
-  curated = _curate(info, ticker)
-  return ToolResponse(
-      markdown=_markdown(curated),
-      structured=curated,
-      meta={"provider": PROVIDER},
-  )
+    info = await yf_call(_fetch)
+    if not info or not (info.get("shortName") or info.get("longName") or info.get("marketCap")):
+        raise ToolError(f"no reference data for '{ticker}': check the ticker")
+    curated = _curate(info, ticker)
+    return ToolResponse(
+        markdown=_markdown(curated),
+        structured=curated,
+        meta={"provider": PROVIDER},
+    )
 
 
 SPEC = ToolSpec(

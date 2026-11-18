@@ -23,61 +23,61 @@ PROFILES_FILE = "providers.json"
 
 
 class Generation(BaseModel):
-  """Sampling defaults for a profile.
+    """Sampling defaults for a profile.
 
-  The output token budget is not a profile setting: callers pass it from the
-  runtime config (``generation.max_tokens``, ``reader.max_tokens``).
-  """
+    The output token budget is not a profile setting: callers pass it from the
+    runtime config (``generation.max_tokens``, ``reader.max_tokens``).
+    """
 
-  model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
-  temperature: float = 0.7
-  top_p: float = 1.0
-  presence_penalty: float = 0.0
+    temperature: float = 0.7
+    top_p: float = 1.0
+    presence_penalty: float = 0.0
 
 
 class ModelProfile(BaseModel):
-  """A single backbone target.
+    """A single backbone target.
 
-  ``base_url=None`` uses the OpenAI default endpoint; set it to e.g.
-  ``http://127.0.0.1:8000/v1`` for a local vLLM. The API key is resolved at
-  client-construction time (never stored).
-  """
-
-  model_config = ConfigDict(extra="forbid")
-
-  name: str
-  model: str
-  base_url: str | None = None
-  api_key_env: str = "OPENAI_API_KEY"
-  api_key_literal: str | None = None  # e.g. "EMPTY" for an open vLLM
-  timeout_s: float = 600.0
-  generation: Generation = Field(default_factory=Generation)
-  extra_body: dict[str, Any] = Field(default_factory=dict)
-  adapter: str | None = None  # quirk-adapter name (see providers/adapters)
-  # The wire protocol the loop uses (providers/base.Provider): "chat" =
-  # OpenAI-compatible Chat Completions (works with vLLM / any compatible endpoint);
-  # "gemini" = the native google-genai SDK. Selects the provider via provider_for().
-  provider: Literal["chat", "gemini"] = "chat"
-  # Role in the harness: a "backbone" drives the agent loop (and is selectable per
-  # request); a "reader" is the page-reading model and is never a loop backbone.
-  role: Literal["backbone", "reader"] = "backbone"
-  # The reader (page-extraction) profile to pair with this backbone. None → the
-  # default qwen-reader. Cloud backbones read their own pages so a run never
-  # depends on the local reader being served.
-  reader_profile: str | None = None
-  # Context window in tokens. Bounds the page text sent when this profile reads
-  # pages; None falls back to the runtime ``recovery.context_window``.
-  context_window: int | None = None
-
-  def resolve_api_key(self, env = None):
-    """Resolve the credential: explicit literal wins, else the env var,
-
-    else "" (the client falls back to a placeholder for keyless vLLM).
+    ``base_url=None`` uses the OpenAI default endpoint; set it to e.g.
+    ``http://127.0.0.1:8000/v1`` for a local vLLM. The API key is resolved at
+    client-construction time (never stored).
     """
-    if self.api_key_literal is not None:
-      return self.api_key_literal
-    return (env if env is not None else os.environ).get(self.api_key_env, "")
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    model: str
+    base_url: str | None = None
+    api_key_env: str = "OPENAI_API_KEY"
+    api_key_literal: str | None = None  # e.g. "EMPTY" for an open vLLM
+    timeout_s: float = 600.0
+    generation: Generation = Field(default_factory=Generation)
+    extra_body: dict[str, Any] = Field(default_factory=dict)
+    adapter: str | None = None  # quirk-adapter name (see providers/adapters)
+    # The wire protocol the loop uses (providers/base.Provider): "chat" =
+    # OpenAI-compatible Chat Completions (works with vLLM / any compatible endpoint);
+    # "gemini" = the native google-genai SDK. Selects the provider via provider_for().
+    provider: Literal["chat", "gemini"] = "chat"
+    # Role in the harness: a "backbone" drives the agent loop (and is selectable per
+    # request); a "reader" is the page-reading model and is never a loop backbone.
+    role: Literal["backbone", "reader"] = "backbone"
+    # The reader (page-extraction) profile to pair with this backbone. None → the
+    # default qwen-reader. Cloud backbones read their own pages so a run never
+    # depends on the local reader being served.
+    reader_profile: str | None = None
+    # Context window in tokens. Bounds the page text sent when this profile reads
+    # pages; None falls back to the runtime ``recovery.context_window``.
+    context_window: int | None = None
+
+    def resolve_api_key(self, env=None):
+        """Resolve the credential: explicit literal wins, else the env var,
+
+        else "" (the client falls back to a placeholder for keyless vLLM).
+        """
+        if self.api_key_literal is not None:
+            return self.api_key_literal
+        return (env if env is not None else os.environ).get(self.api_key_env, "")
 
 
 # Built-in backbones. The runtime that serves the model is the axis of identity:
@@ -147,125 +147,121 @@ _DEFAULT_PROFILE_NAME = "gemini"
 
 
 def _read_file(path):
-  """The profiles file as a dict: empty when absent or, with a warning, unusable."""
-  try:
-    return read_json_object(path) or {}
-  except (OSError, ValueError) as err:
-    warn_once(f"ignoring {path}: {reason_of(err)}; using the built-in profiles")
-    return {}
+    """The profiles file as a dict: empty when absent or, with a warning, unusable."""
+    try:
+        return read_json_object(path) or {}
+    except (OSError, ValueError) as err:
+        warn_once(f"ignoring {path}: {reason_of(err)}; using the built-in profiles")
+        return {}
 
 
 def _with_env(name, spec, env):
-  """``spec`` with the ``FH_<NAME>_BASE_URL`` and ``FH_<NAME>_MODEL`` overrides."""
-  key = f"FH_{name.upper().replace('-', '_')}"
-  base_override = env.get(f"{key}_BASE_URL")
-  model_override = env.get(f"{key}_MODEL")
-  if base_override:
-    spec = {**spec, "base_url": base_override}
-  if model_override:
-    spec = {**spec, "model": model_override}
-  return spec
+    """``spec`` with the ``FH_<NAME>_BASE_URL`` and ``FH_<NAME>_MODEL`` overrides."""
+    key = f"FH_{name.upper().replace('-', '_')}"
+    base_override = env.get(f"{key}_BASE_URL")
+    model_override = env.get(f"{key}_MODEL")
+    if base_override:
+        spec = {**spec, "base_url": base_override}
+    if model_override:
+        spec = {**spec, "model": model_override}
+    return spec
 
 
 def load_profiles(
-    path = None,
-    env = None,
+    path=None,
+    env=None,
 ):
-  """Load all profiles: the built-ins, changed or extended by the file's ``profiles``.
+    """Load all profiles: the built-ins, changed or extended by the file's ``profiles``.
 
-  A file profile that is not valid is reported and skipped; when it overrides
-  a built-in profile, the built-in one is kept unchanged.
-  """
-  e = env if env is not None else os.environ
-  p = Path(path) if path is not None else config_file(PROFILES_FILE, e)
-  file_profiles = _read_file(p).get("profiles") or {}
-  if not isinstance(file_profiles, dict):
-    warn_once(f"ignoring \"profiles\" in {p}: it is not an object")
-    file_profiles = {}
+    A file profile that is not valid is reported and skipped; when it overrides
+    a built-in profile, the built-in one is kept unchanged.
+    """
+    e = env if env is not None else os.environ
+    p = Path(path) if path is not None else config_file(PROFILES_FILE, e)
+    file_profiles = _read_file(p).get("profiles") or {}
+    if not isinstance(file_profiles, dict):
+        warn_once(f'ignoring "profiles" in {p}: it is not an object')
+        file_profiles = {}
 
-  profiles = {
-      name: ModelProfile(**_with_env(name, spec, e))
-      for name, spec in _BUILTIN_PROFILES.items()
-  }
-  for name, spec in file_profiles.items():
-    try:
-      if not isinstance(spec, dict):
-        raise ValueError("it is not an object")
-      merged = {**_BUILTIN_PROFILES.get(name, {}), **spec, "name": name}
-      profiles[name] = ModelProfile(**_with_env(name, merged, e))
-    except (ValueError, TypeError) as err:
-      kept = "; keeping the built-in profile" if name in _BUILTIN_PROFILES else ""
-      warn_once(f"ignoring profile '{name}' in {p}: {reason_of(err)}{kept}")
-  return profiles
+    profiles = {
+        name: ModelProfile(**_with_env(name, spec, e)) for name, spec in _BUILTIN_PROFILES.items()
+    }
+    for name, spec in file_profiles.items():
+        try:
+            if not isinstance(spec, dict):
+                raise ValueError("it is not an object")
+            merged = {**_BUILTIN_PROFILES.get(name, {}), **spec, "name": name}
+            profiles[name] = ModelProfile(**_with_env(name, merged, e))
+        except (ValueError, TypeError) as err:
+            kept = "; keeping the built-in profile" if name in _BUILTIN_PROFILES else ""
+            warn_once(f"ignoring profile '{name}' in {p}: {reason_of(err)}{kept}")
+    return profiles
 
 
 def default_profile_name(
-    path = None,
-    env = None,
+    path=None,
+    env=None,
 ):
-  """The active default profile: ``FH_PROFILE``, else the file's ``"default"``.
+    """The active default profile: ``FH_PROFILE``, else the file's ``"default"``.
 
-  A name that is not a known profile is reported and the built-in default is
-  used, so the reported default and the profile actually used never disagree.
-  """
-  e = env if env is not None else os.environ
-  p = Path(path) if path is not None else config_file(PROFILES_FILE, e)
-  known = load_profiles(path=path, env=env)
-  for source, chosen in (
-      ("FH_PROFILE", e.get("FH_PROFILE")),
-      (f"\"default\" in {p}", _read_file(p).get("default")),
-  ):
-    if not chosen:
-      continue
-    if isinstance(chosen, str) and chosen in known:
-      return chosen
-    warn_once(
-        f"ignoring {source}: {chosen!r} is not a known profile; using"
-        f" '{_DEFAULT_PROFILE_NAME}'"
-    )
-    break
-  return _DEFAULT_PROFILE_NAME
+    A name that is not a known profile is reported and the built-in default is
+    used, so the reported default and the profile actually used never disagree.
+    """
+    e = env if env is not None else os.environ
+    p = Path(path) if path is not None else config_file(PROFILES_FILE, e)
+    known = load_profiles(path=path, env=env)
+    for source, chosen in (
+        ("FH_PROFILE", e.get("FH_PROFILE")),
+        (f'"default" in {p}', _read_file(p).get("default")),
+    ):
+        if not chosen:
+            continue
+        if isinstance(chosen, str) and chosen in known:
+            return chosen
+        warn_once(
+            f"ignoring {source}: {chosen!r} is not a known profile; using '{_DEFAULT_PROFILE_NAME}'"
+        )
+        break
+    return _DEFAULT_PROFILE_NAME
 
 
 def get_profile(
-    name = None,
+    name=None,
     *,
-    path = None,
-    env = None,
+    path=None,
+    env=None,
 ):
-  """Resolve a profile by name (or the active default).
+    """Resolve a profile by name (or the active default).
 
-  Falls back to the built-in default (``gemini``) if the requested name is
-  unknown.
-  """
-  profiles = load_profiles(path=path, env=env)
-  resolved = name or default_profile_name(path=path, env=env)
-  return profiles.get(resolved) or profiles[_DEFAULT_PROFILE_NAME]
+    Falls back to the built-in default (``gemini``) if the requested name is
+    unknown.
+    """
+    profiles = load_profiles(path=path, env=env)
+    resolved = name or default_profile_name(path=path, env=env)
+    return profiles.get(resolved) or profiles[_DEFAULT_PROFILE_NAME]
 
 
 def available_backbones(
     *,
-    path = None,
-    env = None,
+    path=None,
+    env=None,
 ):
-  """Switchable backbone profiles (``role == "backbone"``) with credential availability.
+    """Switchable backbone profiles (``role == "backbone"``) with credential availability.
 
-  The page reader is excluded. ``available`` is True for a keyless vLLM
-  (``api_key_literal`` set) or when the profile's API key resolves. Ordered
-  available first (the default floated up), then alphabetically. Backs the
-  ``/models`` endpoint's picker; the active profile is a per-request choice, so
-  the endpoint reports the configured default separately.
-  """
-  e = env if env is not None else os.environ
-  active = default_profile_name(path=path, env=env)
-  out: list[dict[str, Any]] = []
-  for p in load_profiles(path=path, env=env).values():
-    if (
-        p.role != "backbone"
-    ):  # readers are paired internally, not user-selectable
-      continue
-    available = p.api_key_literal is not None or bool(p.resolve_api_key(e))
-    out.append({"name": p.name, "model": p.model, "available": available})
-  # available first, the default floated to the top, then alphabetical.
-  out.sort(key=lambda m: (not m["available"], m["name"] != active, m["name"]))
-  return out
+    The page reader is excluded. ``available`` is True for a keyless vLLM
+    (``api_key_literal`` set) or when the profile's API key resolves. Ordered
+    available first (the default floated up), then alphabetically. Backs the
+    ``/models`` endpoint's picker; the active profile is a per-request choice, so
+    the endpoint reports the configured default separately.
+    """
+    e = env if env is not None else os.environ
+    active = default_profile_name(path=path, env=env)
+    out: list[dict[str, Any]] = []
+    for p in load_profiles(path=path, env=env).values():
+        if p.role != "backbone":  # readers are paired internally, not user-selectable
+            continue
+        available = p.api_key_literal is not None or bool(p.resolve_api_key(e))
+        out.append({"name": p.name, "model": p.model, "available": available})
+    # available first, the default floated to the top, then alphabetical.
+    out.sort(key=lambda m: (not m["available"], m["name"] != active, m["name"]))
+    return out

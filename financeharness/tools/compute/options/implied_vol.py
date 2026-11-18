@@ -40,148 +40,143 @@ _MAX_ITER = 200
 
 
 class ImpliedVolRequest(BaseModel):
-  """Input for solving implied volatility from option prices."""
+    """Input for solving implied volatility from option prices."""
 
-  option_type: Literal["call", "put"] = Field(
-      Ellipsis, description="call or put (applies to every strike)."
-  )
-  spot: Finite = Field(
-      Ellipsis, gt=0, le=_MAX_PRICE, description="Underlying price, e.g. 100."
-  )
-  strikes: list[Finite] = Field(
-      Ellipsis,
-      min_length=1,
-      max_length=_MAX_STRIKES,
-      description="Strike(s) > 0, e.g. [95, 100, 105].",
-  )
-  prices: list[Finite | None] = Field(
-      Ellipsis,
-      min_length=1,
-      max_length=_MAX_STRIKES,
-      description=(
-          "Option price per strike, same order and length as strikes (null to"
-          " skip), e.g. [7.1, 4.25, 2.05]."
-      ),
-  )
-  time_to_expiry_years: float = Field(
-      Ellipsis,
-      gt=0,
-      le=10,
-      description="Time to expiry in years, e.g. 30/365 = 0.0822.",
-  )
-  risk_free_rate: float = Field(
-      Ellipsis,
-      gt=-0.1,
-      lt=1,
-      description="Annual risk-free rate, decimal (0.045).",
-  )
-  dividend_yield: float = Field(
-      0.0, ge=0, lt=1, description="Continuous dividend yield, decimal (0.015)."
-  )
+    option_type: Literal["call", "put"] = Field(
+        Ellipsis, description="call or put (applies to every strike)."
+    )
+    spot: Finite = Field(Ellipsis, gt=0, le=_MAX_PRICE, description="Underlying price, e.g. 100.")
+    strikes: list[Finite] = Field(
+        Ellipsis,
+        min_length=1,
+        max_length=_MAX_STRIKES,
+        description="Strike(s) > 0, e.g. [95, 100, 105].",
+    )
+    prices: list[Finite | None] = Field(
+        Ellipsis,
+        min_length=1,
+        max_length=_MAX_STRIKES,
+        description=(
+            "Option price per strike, same order and length as strikes (null to"
+            " skip), e.g. [7.1, 4.25, 2.05]."
+        ),
+    )
+    time_to_expiry_years: float = Field(
+        Ellipsis,
+        gt=0,
+        le=10,
+        description="Time to expiry in years, e.g. 30/365 = 0.0822.",
+    )
+    risk_free_rate: float = Field(
+        Ellipsis,
+        gt=-0.1,
+        lt=1,
+        description="Annual risk-free rate, decimal (0.045).",
+    )
+    dividend_yield: float = Field(
+        0.0, ge=0, lt=1, description="Continuous dividend yield, decimal (0.015)."
+    )
 
-  @model_validator(mode="after")
-  def _check_pairs(self):
-    if len(self.prices) != len(self.strikes):
-      raise ValueError(
-          f"prices ({len(self.prices)}) must match strikes"
-          f" ({len(self.strikes)}) one-to-one"
-      )
-    if any(not 0 < k <= _MAX_PRICE for k in self.strikes):
-      raise ValueError(f"every strike must be > 0 and <= {_MAX_PRICE:g}")
-    return self
+    @model_validator(mode="after")
+    def _check_pairs(self):
+        if len(self.prices) != len(self.strikes):
+            raise ValueError(
+                f"prices ({len(self.prices)}) must match strikes ({len(self.strikes)}) one-to-one"
+            )
+        if any(not 0 < k <= _MAX_PRICE for k in self.strikes):
+            raise ValueError(f"every strike must be > 0 and <= {_MAX_PRICE:g}")
+        return self
 
 
 def implied_vol(option_type, price, spot, strike, t, r, q=0.0):
-  """(vol, None) where BSM(vol) reproduces ``price``, or (None, reason).
+    """(vol, None) where BSM(vol) reproduces ``price``, or (None, reason).
 
-  Bisection on vol in [1e-6, 5]: the price is strictly increasing in it, so the
-  bracket halves to within 1e-8 in about 30 steps.
-  """
-  fwd_spot, pv_strike = spot * math.exp(-q * t), strike * math.exp(-r * t)
-  if option_type == "call":
-    lower, upper = max(fwd_spot - pv_strike, 0.0), fwd_spot
-  else:
-    lower, upper = max(pv_strike - fwd_spot, 0.0), pv_strike
-  if price <= lower:
-    return None, "price at or below intrinsic value (no time value)"
-  if price >= upper:
-    return None, "price at or above the no-arbitrage upper bound"
-
-  def model(sigma):
-    return bsm(spot, strike, t, r, sigma, q)[option_type]["price"]
-
-  lo, hi = _VOL_LO, _VOL_HI
-  if model(lo) > price:
-    return None, "time value too small to resolve"
-  if model(hi) < price:
-    return None, f"implied vol above {pct(_VOL_HI, 0)}"
-  for _ in range(_MAX_ITER):
-    mid = 0.5 * (lo + hi)
-    if model(mid) < price:
-      lo = mid
+    Bisection on vol in [1e-6, 5]: the price is strictly increasing in it, so the
+    bracket halves to within 1e-8 in about 30 steps.
+    """
+    fwd_spot, pv_strike = spot * math.exp(-q * t), strike * math.exp(-r * t)
+    if option_type == "call":
+        lower, upper = max(fwd_spot - pv_strike, 0.0), fwd_spot
     else:
-      hi = mid
-    if hi - lo < _VOL_TOL:
-      break
-  return 0.5 * (lo + hi), None
+        lower, upper = max(pv_strike - fwd_spot, 0.0), pv_strike
+    if price <= lower:
+        return None, "price at or below intrinsic value (no time value)"
+    if price >= upper:
+        return None, "price at or above the no-arbitrage upper bound"
+
+    def model(sigma):
+        return bsm(spot, strike, t, r, sigma, q)[option_type]["price"]
+
+    lo, hi = _VOL_LO, _VOL_HI
+    if model(lo) > price:
+        return None, "time value too small to resolve"
+    if model(hi) < price:
+        return None, f"implied vol above {pct(_VOL_HI, 0)}"
+    for _ in range(_MAX_ITER):
+        mid = 0.5 * (lo + hi)
+        if model(mid) < price:
+            lo = mid
+        else:
+            hi = mid
+        if hi - lo < _VOL_TOL:
+            break
+    return 0.5 * (lo + hi), None
 
 
 def compute_implied_vol(req):
-  """Solve each (strike, price) pair; unsolvable ones carry a reason."""
-  results = []
-  for k, p in zip(req.strikes, req.prices, strict=True):
-    row = {"strike": k, "price": p, "implied_vol": None}
-    if p is None:
-      row["reason"] = "no price"
-    else:
-      vol, reason = implied_vol(
-          req.option_type,
-          p,
-          req.spot,
-          k,
-          req.time_to_expiry_years,
-          req.risk_free_rate,
-          req.dividend_yield,
-      )
-      if vol is None:
-        row["reason"] = reason
-      else:
-        row["implied_vol"] = round(vol, 6)
-    results.append(row)
-  return {
-      "option_type": req.option_type,
-      "model": "black-scholes-merton (european)",
-      "inputs": {
-          "spot": req.spot,
-          "time_to_expiry_years": req.time_to_expiry_years,
-          "risk_free_rate": req.risk_free_rate,
-          "dividend_yield": req.dividend_yield,
-      },
-      "results": results,
-      "n_solved": sum(1 for r in results if r["implied_vol"] is not None),
-  }
+    """Solve each (strike, price) pair; unsolvable ones carry a reason."""
+    results = []
+    for k, p in zip(req.strikes, req.prices, strict=True):
+        row = {"strike": k, "price": p, "implied_vol": None}
+        if p is None:
+            row["reason"] = "no price"
+        else:
+            vol, reason = implied_vol(
+                req.option_type,
+                p,
+                req.spot,
+                k,
+                req.time_to_expiry_years,
+                req.risk_free_rate,
+                req.dividend_yield,
+            )
+            if vol is None:
+                row["reason"] = reason
+            else:
+                row["implied_vol"] = round(vol, 6)
+        results.append(row)
+    return {
+        "option_type": req.option_type,
+        "model": "black-scholes-merton (european)",
+        "inputs": {
+            "spot": req.spot,
+            "time_to_expiry_years": req.time_to_expiry_years,
+            "risk_free_rate": req.risk_free_rate,
+            "dividend_yield": req.dividend_yield,
+        },
+        "results": results,
+        "n_solved": sum(1 for r in results if r["implied_vol"] is not None),
+    }
 
 
 def _markdown(res):
-  i = res["inputs"]
-  lines = [
-      f"**Implied volatility** ({res['option_type']}s, BSM):"
-      f" S={num(i['spot'])}, T={num(i['time_to_expiry_years'], 4)}y,"
-      f" r={pct(i['risk_free_rate'], 2)}, q={pct(i['dividend_yield'], 2)}"
-  ]
-  for r in res["results"]:
-    iv = pct(r["implied_vol"]) if r["implied_vol"] is not None else "n/a"
-    why = f" ({r['reason']})" if r.get("reason") else ""
-    lines.append(f"  K {num(r['strike'])} @ {num(r['price'], 4)}: {iv}{why}")
-  lines.append(f"Solved {res['n_solved']}/{len(res['results'])}.")
-  return "\n".join(lines)
+    i = res["inputs"]
+    lines = [
+        f"**Implied volatility** ({res['option_type']}s, BSM):"
+        f" S={num(i['spot'])}, T={num(i['time_to_expiry_years'], 4)}y,"
+        f" r={pct(i['risk_free_rate'], 2)}, q={pct(i['dividend_yield'], 2)}"
+    ]
+    for r in res["results"]:
+        iv = pct(r["implied_vol"]) if r["implied_vol"] is not None else "n/a"
+        why = f" ({r['reason']})" if r.get("reason") else ""
+        lines.append(f"  K {num(r['strike'])} @ {num(r['price'], 4)}: {iv}{why}")
+    lines.append(f"Solved {res['n_solved']}/{len(res['results'])}.")
+    return "\n".join(lines)
 
 
 async def _handler(req):
-  res = compute_implied_vol(req)
-  return ToolResponse(
-      markdown=_markdown(res), structured=res, meta={"model": res["model"]}
-  )
+    res = compute_implied_vol(req)
+    return ToolResponse(markdown=_markdown(res), structured=res, meta={"model": res["model"]})
 
 
 SPEC = ToolSpec(

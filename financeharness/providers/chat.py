@@ -15,51 +15,51 @@ from financeharness.providers.client import complete, stream
 
 
 def turn_from_completion(cc):
-  """Normalize a ``ChatCompletion`` (streamed or not) into an AssistantTurn."""
-  if not cc.choices:
-    return AssistantTurn(finish_reason="error")
-  choice = cc.choices[0]
-  msg = choice.message
-  calls: list[ToolCall] = []
-  for tc in getattr(msg, "tool_calls", None) or []:
-    # Gemini rides a thought_signature on the tool call's extra_content; it must
-    # round-trip or multi-turn tool calling 400s. Absent for other providers.
-    extra = getattr(tc, "extra_content", None) or (
-        getattr(tc, "model_extra", None) or {}
-    ).get("extra_content")
-    calls.append(
-        ToolCall(
-            id=tc.id or "",
-            name=tc.function.name,
-            arguments=tc.function.arguments,
-            extra=extra or None,
+    """Normalize a ``ChatCompletion`` (streamed or not) into an AssistantTurn."""
+    if not cc.choices:
+        return AssistantTurn(finish_reason="error")
+    choice = cc.choices[0]
+    msg = choice.message
+    calls: list[ToolCall] = []
+    for tc in getattr(msg, "tool_calls", None) or []:
+        # Gemini rides a thought_signature on the tool call's extra_content; it must
+        # round-trip or multi-turn tool calling 400s. Absent for other providers.
+        extra = getattr(tc, "extra_content", None) or (getattr(tc, "model_extra", None) or {}).get(
+            "extra_content"
         )
+        calls.append(
+            ToolCall(
+                id=tc.id or "",
+                name=tc.function.name,
+                arguments=tc.function.arguments,
+                extra=extra or None,
+            )
+        )
+    return AssistantTurn(
+        content=msg.content or "",
+        tool_calls=calls,
+        finish_reason=choice.finish_reason or "stop",
     )
-  return AssistantTurn(
-      content=msg.content or "",
-      tool_calls=calls,
-      finish_reason=choice.finish_reason or "stop",
-  )
 
 
 class ChatCompletionsProvider(Provider):
-  """vLLM / OpenAI-compatible Chat Completions backbone."""
+    """vLLM / OpenAI-compatible Chat Completions backbone."""
 
-  async def generate(
-      self,
-      messages,
-      *,
-      tools = None,
-      max_tokens = None,
-      on_delta = None,
-  ):
-    kwargs: dict[str, Any] = {
-        "tools": tools,
-        "max_tokens": max_tokens,
-        "client": self.client,
-    }
-    if on_delta is None:
-      cc = await complete(self.profile, messages, **kwargs)
-    else:
-      cc = await stream(self.profile, messages, on_delta=on_delta, **kwargs)
-    return turn_from_completion(cc)
+    async def generate(
+        self,
+        messages,
+        *,
+        tools=None,
+        max_tokens=None,
+        on_delta=None,
+    ):
+        kwargs: dict[str, Any] = {
+            "tools": tools,
+            "max_tokens": max_tokens,
+            "client": self.client,
+        }
+        if on_delta is None:
+            cc = await complete(self.profile, messages, **kwargs)
+        else:
+            cc = await stream(self.profile, messages, on_delta=on_delta, **kwargs)
+        return turn_from_completion(cc)

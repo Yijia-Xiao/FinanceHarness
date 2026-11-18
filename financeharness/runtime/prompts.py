@@ -133,25 +133,29 @@ SYSTEM_PROMPT_RESEARCH = "\n\n".join(
     [_RESEARCH_INTRO, _HOW_YOU_RESEARCH, _PLANNING, _GROUNDING, _OUTPUT, _VOICE]
 )
 # General default: web + the supporting data/compute toolkit, model decides.
-SYSTEM_PROMPT_AUTO = "\n\n".join([
-    _AUTO_INTRO,
-    _HOW_YOU_RESEARCH,
-    _SUPPORTING_TOOLKIT,
-    _PLANNING,
-    _GROUNDING,
-    _OUTPUT,
-    _VOICE,
-])
+SYSTEM_PROMPT_AUTO = "\n\n".join(
+    [
+        _AUTO_INTRO,
+        _HOW_YOU_RESEARCH,
+        _SUPPORTING_TOOLKIT,
+        _PLANNING,
+        _GROUNDING,
+        _OUTPUT,
+        _VOICE,
+    ]
+)
 # Numbers-first: lead with the data/compute tools, web for context.
-SYSTEM_PROMPT_ANALYTICAL = "\n\n".join([
-    _ANALYTICAL_INTRO,
-    _HOW_YOU_ANALYZE,
-    _SUPPORTING_TOOLKIT,
-    _PLANNING,
-    _GROUNDING,
-    _OUTPUT,
-    _VOICE,
-])
+SYSTEM_PROMPT_ANALYTICAL = "\n\n".join(
+    [
+        _ANALYTICAL_INTRO,
+        _HOW_YOU_ANALYZE,
+        _SUPPORTING_TOOLKIT,
+        _PLANNING,
+        _GROUNDING,
+        _OUTPUT,
+        _VOICE,
+    ]
+)
 
 PROMPT_VARIANTS = {
     "auto": SYSTEM_PROMPT_AUTO,
@@ -190,34 +194,32 @@ resolved, the tool result names what was available. Adjust on the next turn."""
 def build_system_prompt(
     registry,
     *,
-    skill_registry = None,
-    base = SYSTEM_PROMPT_AUTO,
-    today = None,
-    include_chaining = True,
+    skill_registry=None,
+    base=SYSTEM_PROMPT_AUTO,
+    today=None,
+    include_chaining=True,
 ):
-  """Assemble the system prompt: base + date + skills catalog + deferred-tool
+    """Assemble the system prompt: base + date + skills catalog + deferred-tool
 
-  catalog + (optional) the chaining help block.
-  """
-  parts = [
-      base,
-      f"Today's date is {today or datetime.date.today().isoformat()}.",
-  ]
-  skills = skill_registry.catalog_text() if skill_registry else ""
-  if skills:
-    parts.append(
-        "Workflow-recipe skills are available. When the question matches one,"
-        " call `load_skill` to pull the recipe (its required tools are"
-        " auto-loaded):\n"
-        + skills
-    )
-  catalog = registry.catalog_text()
-  if catalog:
-    parts.append(
-        "Additional tools are available but not loaded. Call `load_tool` with "
-        "the names you need to use them:\n"
-        + catalog
-    )
-  if include_chaining:
-    parts.append(CHAINING_PROMPT_BLOCK)
-  return "\n\n".join(parts)
+    catalog + (optional) the chaining help block.
+    """
+    parts = [
+        base,
+        f"Today's date is {today or datetime.date.today().isoformat()}.",
+    ]
+    skills = skill_registry.catalog_text() if skill_registry else ""
+    if skills:
+        parts.append(
+            "Workflow-recipe skills are available. When the question matches one,"
+            " call `load_skill` to pull the recipe (its required tools are"
+            " auto-loaded):\n" + skills
+        )
+    catalog = registry.catalog_text()
+    if catalog:
+        parts.append(
+            "Additional tools are available but not loaded. Call `load_tool` with "
+            "the names you need to use them:\n" + catalog
+        )
+    if include_chaining:
+        parts.append(CHAINING_PROMPT_BLOCK)
+    return "\n\n".join(parts)

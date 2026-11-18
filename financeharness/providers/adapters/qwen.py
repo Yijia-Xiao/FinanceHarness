@@ -14,15 +14,15 @@ _DEFAULT_TOP_K = 20
 
 
 def qwen_adapter(kwargs):
-  """Inject ``top_k`` and ``enable_thinking`` into ``extra_body`` without
+    """Inject ``top_k`` and ``enable_thinking`` into ``extra_body`` without
 
-  clobbering any caller-provided extra_body keys. Pure (returns a new dict).
-  """
-  out = copy.deepcopy(kwargs)
-  extra_body = dict(out.get("extra_body") or {})
-  extra_body.setdefault("top_k", _DEFAULT_TOP_K)
-  chat_template_kwargs = dict(extra_body.get("chat_template_kwargs") or {})
-  chat_template_kwargs.setdefault("enable_thinking", True)
-  extra_body["chat_template_kwargs"] = chat_template_kwargs
-  out["extra_body"] = extra_body
-  return out
+    clobbering any caller-provided extra_body keys. Pure (returns a new dict).
+    """
+    out = copy.deepcopy(kwargs)
+    extra_body = dict(out.get("extra_body") or {})
+    extra_body.setdefault("top_k", _DEFAULT_TOP_K)
+    chat_template_kwargs = dict(extra_body.get("chat_template_kwargs") or {})
+    chat_template_kwargs.setdefault("enable_thinking", True)
+    extra_body["chat_template_kwargs"] = chat_template_kwargs
+    out["extra_body"] = extra_body
+    return out

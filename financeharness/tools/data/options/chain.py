@@ -21,13 +21,13 @@ from pydantic import BaseModel, Field, field_validator
 
 from financeharness.runtime.tool_registry import ToolError, ToolResponse, ToolSpec
 from financeharness.tools.data.equity.common import (
-  PROVIDER,
-  TICKER_MAX_LEN,
-  df_cell,
-  is_num,
-  num,
-  pct,
-  yf_call,
+    PROVIDER,
+    TICKER_MAX_LEN,
+    df_cell,
+    is_num,
+    num,
+    pct,
+    yf_call,
 )
 from financeharness.tools.data.market.quotes import last_quote
 
@@ -61,212 +61,200 @@ _FIELDS = {
 
 
 class OptionsChainRequest(BaseModel):
-  """Input for fetching one expiry of a listed option chain."""
+    """Input for fetching one expiry of a listed option chain."""
 
-  ticker: str = Field(
-      Ellipsis,
-      min_length=1,
-      max_length=TICKER_MAX_LEN,
-      description="Underlying ticker (e.g. SPY, AAPL).",
-  )
-  expiration: str | None = Field(
-      None,
-      description=(
-          "Expiry date YYYY-MM-DD from the listed expirations; omit for the"
-          " first expiry at least min_days_to_expiry out."
-      ),
-  )
-  min_days_to_expiry: int = Field(
-      7,
-      ge=0,
-      le=3650,
-      description=(
-          "When expiration is omitted, skip expiries sooner than this many"
-          " calendar days (default 7; near-zero tenors price poorly)."
-      ),
-  )
-  max_strikes: int = Field(
-      20,
-      ge=1,
-      le=_MAX_STRIKES,
-      description="Keep the N strikes nearest spot for calls and for puts.",
-  )
+    ticker: str = Field(
+        Ellipsis,
+        min_length=1,
+        max_length=TICKER_MAX_LEN,
+        description="Underlying ticker (e.g. SPY, AAPL).",
+    )
+    expiration: str | None = Field(
+        None,
+        description=(
+            "Expiry date YYYY-MM-DD from the listed expirations; omit for the"
+            " first expiry at least min_days_to_expiry out."
+        ),
+    )
+    min_days_to_expiry: int = Field(
+        7,
+        ge=0,
+        le=3650,
+        description=(
+            "When expiration is omitted, skip expiries sooner than this many"
+            " calendar days (default 7; near-zero tenors price poorly)."
+        ),
+    )
+    max_strikes: int = Field(
+        20,
+        ge=1,
+        le=_MAX_STRIKES,
+        description="Keep the N strikes nearest spot for calls and for puts.",
+    )
 
-  @field_validator("expiration")
-  @classmethod
-  def _ve(cls, v):
-    if v is not None:
-      try:
-        datetime.date.fromisoformat(v)
-      except ValueError as e:
-        raise ValueError("expiration must be YYYY-MM-DD") from e
-    return v
+    @field_validator("expiration")
+    @classmethod
+    def _ve(cls, v):
+        if v is not None:
+            try:
+                datetime.date.fromisoformat(v)
+            except ValueError as e:
+                raise ValueError("expiration must be YYYY-MM-DD") from e
+        return v
 
 
-def _exchange_today(now = None):
-  """Today's date on the exchange calendar (``now``: an aware datetime)."""
-  now = now or datetime.datetime.now(datetime.UTC)
-  return now.astimezone(_EXCHANGE_TZ).date()
+def _exchange_today(now=None):
+    """Today's date on the exchange calendar (``now``: an aware datetime)."""
+    now = now or datetime.datetime.now(datetime.UTC)
+    return now.astimezone(_EXCHANGE_TZ).date()
 
 
 def _pick_expiry(expirations, today, min_days):
-  """First listed expiry at least ``min_days`` and one day out, else the last
+    """First listed expiry at least ``min_days`` and one day out, else the last
 
-  one listed (the handler refuses it when it is dated today).
-  """
-  for e in expirations:
-    if (datetime.date.fromisoformat(e) - today).days >= max(min_days, 1):
-      return e
-  return expirations[-1]
+    one listed (the handler refuses it when it is dated today).
+    """
+    for e in expirations:
+        if (datetime.date.fromisoformat(e) - today).days >= max(min_days, 1):
+            return e
+    return expirations[-1]
 
 
 def _rows(df):
-  """JSON-safe rows from an option_chain frame (NaN as None), with a bid/ask mid."""
-  if df is None or getattr(df, "empty", True):
-    return []
-  out: list[dict[str, Any]] = []
-  for _, row in df.iterrows():
-    symbol = row.get("contractSymbol")
-    rec: dict[str, Any] = {
-        "contract": symbol if isinstance(symbol, str) else None
-    }
-    for key, col in _FIELDS.items():
-      rec[key] = df_cell(row.get(col))
-    if rec["strike"] is None:
-      continue
-    for key in ("volume", "open_interest"):
-      if rec[key] is not None:
-        rec[key] = int(rec[key])
-    bid, ask = rec["bid"], rec["ask"]
-    rec["mid"] = (
-        round((bid + ask) / 2, 4) if bid and ask and 0 < bid <= ask else None
-    )
-    rec["in_the_money"] = bool(row.get("inTheMoney"))
-    traded = row.get("lastTradeDate")
-    rec["last_trade"] = (
-        traded.strftime("%Y-%m-%d %H:%M UTC")
-        if hasattr(traded, "strftime") and traded == traded
-        else None
-    )
-    out.append(rec)
-  return out
+    """JSON-safe rows from an option_chain frame (NaN as None), with a bid/ask mid."""
+    if df is None or getattr(df, "empty", True):
+        return []
+    out: list[dict[str, Any]] = []
+    for _, row in df.iterrows():
+        symbol = row.get("contractSymbol")
+        rec: dict[str, Any] = {"contract": symbol if isinstance(symbol, str) else None}
+        for key, col in _FIELDS.items():
+            rec[key] = df_cell(row.get(col))
+        if rec["strike"] is None:
+            continue
+        for key in ("volume", "open_interest"):
+            if rec[key] is not None:
+                rec[key] = int(rec[key])
+        bid, ask = rec["bid"], rec["ask"]
+        rec["mid"] = round((bid + ask) / 2, 4) if bid and ask and 0 < bid <= ask else None
+        rec["in_the_money"] = bool(row.get("inTheMoney"))
+        traded = row.get("lastTradeDate")
+        rec["last_trade"] = (
+            traded.strftime("%Y-%m-%d %H:%M UTC")
+            if hasattr(traded, "strftime") and traded == traded
+            else None
+        )
+        out.append(rec)
+    return out
 
 
 def _nearest(rows, spot, n):
-  """The ``n`` rows with strikes closest to ``spot``, back in strike order."""
-  keep = sorted(rows, key=lambda r: abs(r["strike"] - spot))[:n]
-  return sorted(keep, key=lambda r: r["strike"])
+    """The ``n`` rows with strikes closest to ``spot``, back in strike order."""
+    keep = sorted(rows, key=lambda r: abs(r["strike"] - spot))[:n]
+    return sorted(keep, key=lambda r: r["strike"])
 
 
 def _quote_cell(r):
-  if r is None:
-    return "-", "-", "-", "-"
-  oi = r["open_interest"]
-  return (
-      f"{num(r['bid'])}/{num(r['ask'])}",
-      num(r["last"]),
-      pct(r["implied_vol"]),
-      str(oi) if oi is not None else "n/a",
-  )
+    if r is None:
+        return "-", "-", "-", "-"
+    oi = r["open_interest"]
+    return (
+        f"{num(r['bid'])}/{num(r['ask'])}",
+        num(r["last"]),
+        pct(r["implied_vol"]),
+        str(oi) if oi is not None else "n/a",
+    )
 
 
 def _markdown(s):
-  listed = s["expirations"]
-  more = (
-      f" (+{len(listed) - _LISTED_SHOWN} more)"
-      if len(listed) > _LISTED_SHOWN
-      else ""
-  )
-  calls = {r["strike"]: r for r in s["calls"]}
-  puts = {r["strike"]: r for r in s["puts"]}
-  lines = [
-      (
-          f"**{s['ticker']} options**: expiry {s['expiration']}"
-          f" ({s['days_to_expiry']}d, T={num(s['time_to_expiry_years'], 4)}y)"
-          f", spot {num(s['spot'])}, showing {len(s['calls'])} of"
-          f" {s['n_calls_listed']} calls, {len(s['puts'])} of"
-          f" {s['n_puts_listed']} puts nearest spot"
-      ),
-      f"Expirations ({len(listed)}): {', '.join(listed[:_LISTED_SHOWN])}{more}",
-      "",
-      "| Strike | Call bid/ask | Call last | Call IV | Call OI | Put bid/ask"
-      " | Put last | Put IV | Put OI |",
-      "|---|---|---|---|---|---|---|---|---|",
-  ]
-  for k in sorted(set(calls) | set(puts)):
-    cells = (*_quote_cell(calls.get(k)), *_quote_cell(puts.get(k)))
-    lines.append(f"| {num(k)} | " + " | ".join(cells) + " |")
-  lines.append(
-      "\nYahoo data: delayed, no Greeks; Yahoo IV is unreliable without a live"
-      " bid/ask; recompute from mids with compute.options.implied_vol."
-  )
-  return "\n".join(lines)
+    listed = s["expirations"]
+    more = f" (+{len(listed) - _LISTED_SHOWN} more)" if len(listed) > _LISTED_SHOWN else ""
+    calls = {r["strike"]: r for r in s["calls"]}
+    puts = {r["strike"]: r for r in s["puts"]}
+    lines = [
+        (
+            f"**{s['ticker']} options**: expiry {s['expiration']}"
+            f" ({s['days_to_expiry']}d, T={num(s['time_to_expiry_years'], 4)}y)"
+            f", spot {num(s['spot'])}, showing {len(s['calls'])} of"
+            f" {s['n_calls_listed']} calls, {len(s['puts'])} of"
+            f" {s['n_puts_listed']} puts nearest spot"
+        ),
+        f"Expirations ({len(listed)}): {', '.join(listed[:_LISTED_SHOWN])}{more}",
+        "",
+        "| Strike | Call bid/ask | Call last | Call IV | Call OI | Put bid/ask"
+        " | Put last | Put IV | Put OI |",
+        "|---|---|---|---|---|---|---|---|---|",
+    ]
+    for k in sorted(set(calls) | set(puts)):
+        cells = (*_quote_cell(calls.get(k)), *_quote_cell(puts.get(k)))
+        lines.append(f"| {num(k)} | " + " | ".join(cells) + " |")
+    lines.append(
+        "\nYahoo data: delayed, no Greeks; Yahoo IV is unreliable without a live"
+        " bid/ask; recompute from mids with compute.options.implied_vol."
+    )
+    return "\n".join(lines)
 
 
 async def _handler(req):
-  import yfinance as yf
+    import yfinance as yf
 
-  ticker = req.ticker.upper()
-  tk = yf.Ticker(ticker)
+    ticker = req.ticker.upper()
+    tk = yf.Ticker(ticker)
 
-  expirations = await yf_call(lambda: asyncio.to_thread(lambda: tk.options))
-  expirations = list(expirations or ())
-  if not expirations:
-    raise ToolError(
-        f"no listed options for '{ticker}': check the ticker (Yahoo covers"
-        " mainly US-listed equities, ETFs, and indices)"
+    expirations = await yf_call(lambda: asyncio.to_thread(lambda: tk.options))
+    expirations = list(expirations or ())
+    if not expirations:
+        raise ToolError(
+            f"no listed options for '{ticker}': check the ticker (Yahoo covers"
+            " mainly US-listed equities, ETFs, and indices)"
+        )
+    today = _exchange_today()
+    expiry = req.expiration or _pick_expiry(expirations, today, req.min_days_to_expiry)
+    if expiry not in expirations:
+        raise ToolError(
+            f"{expiry} is not a listed {ticker} expiry; listed:"
+            f" {', '.join(expirations[:_LISTED_SHOWN])}"
+        )
+    days = (datetime.date.fromisoformat(expiry) - today).days
+    if days < 1:
+        later = [e for e in expirations if datetime.date.fromisoformat(e) > today]
+        raise ToolError(
+            f"{ticker} {expiry} expires today: no time to expiry is left to"
+            " price. Later expiries:"
+            f" {', '.join(later[:_LISTED_SHOWN]) or 'none listed'}"
+        )
+
+    chain = await yf_call(lambda: asyncio.to_thread(tk.option_chain, expiry))
+    underlying = getattr(chain, "underlying", None) or {}
+    spot = underlying.get("regularMarketPrice")
+    if not is_num(spot):
+        quote = await last_quote(ticker)
+        spot = quote[0] if quote else None
+    if not is_num(spot):
+        raise ToolError(f"no spot price for '{ticker}': provider may be down")
+    spot = round(float(spot), 4)
+
+    calls, puts = _rows(chain.calls), _rows(chain.puts)
+    if not calls and not puts:
+        raise ToolError(f"empty option chain for {ticker} {expiry}")
+    structured = {
+        "ticker": ticker,
+        "spot": spot,
+        "expiration": expiry,
+        "days_to_expiry": days,
+        # calendar-day basis, to the expiry date
+        "time_to_expiry_years": round(days / _DAYS_PER_YEAR, 6),
+        "expirations": expirations,
+        "n_calls_listed": len(calls),
+        "n_puts_listed": len(puts),
+        "calls": _nearest(calls, spot, req.max_strikes),
+        "puts": _nearest(puts, spot, req.max_strikes),
+    }
+    return ToolResponse(
+        markdown=_markdown(structured),
+        structured=structured,
+        meta={"provider": PROVIDER},
     )
-  today = _exchange_today()
-  expiry = req.expiration or _pick_expiry(
-      expirations, today, req.min_days_to_expiry
-  )
-  if expiry not in expirations:
-    raise ToolError(
-        f"{expiry} is not a listed {ticker} expiry; listed:"
-        f" {', '.join(expirations[:_LISTED_SHOWN])}"
-    )
-  days = (datetime.date.fromisoformat(expiry) - today).days
-  if days < 1:
-    later = [
-        e for e in expirations if datetime.date.fromisoformat(e) > today
-    ]
-    raise ToolError(
-        f"{ticker} {expiry} expires today: no time to expiry is left to"
-        " price. Later expiries:"
-        f" {', '.join(later[:_LISTED_SHOWN]) or 'none listed'}"
-    )
-
-  chain = await yf_call(lambda: asyncio.to_thread(tk.option_chain, expiry))
-  underlying = getattr(chain, "underlying", None) or {}
-  spot = underlying.get("regularMarketPrice")
-  if not is_num(spot):
-    quote = await last_quote(ticker)
-    spot = quote[0] if quote else None
-  if not is_num(spot):
-    raise ToolError(f"no spot price for '{ticker}': provider may be down")
-  spot = round(float(spot), 4)
-
-  calls, puts = _rows(chain.calls), _rows(chain.puts)
-  if not calls and not puts:
-    raise ToolError(f"empty option chain for {ticker} {expiry}")
-  structured = {
-      "ticker": ticker,
-      "spot": spot,
-      "expiration": expiry,
-      "days_to_expiry": days,
-      # calendar-day basis, to the expiry date
-      "time_to_expiry_years": round(days / _DAYS_PER_YEAR, 6),
-      "expirations": expirations,
-      "n_calls_listed": len(calls),
-      "n_puts_listed": len(puts),
-      "calls": _nearest(calls, spot, req.max_strikes),
-      "puts": _nearest(puts, spot, req.max_strikes),
-  }
-  return ToolResponse(
-      markdown=_markdown(structured),
-      structured=structured,
-      meta={"provider": PROVIDER},
-  )
 
 
 SPEC = ToolSpec(
