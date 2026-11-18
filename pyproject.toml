@@ -5,8 +5,8 @@ description = "FinanceHarness: Autonomous Financial Deep Research Framework"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "openai>=1.40",
-    "google-genai>=2.10",
+    "openai>=1.40,<3",
+    "google-genai>=2.10,<3",
     "pydantic>=2.7",
     "httpx>=0.27",
     "ddgs>=9.14.4",

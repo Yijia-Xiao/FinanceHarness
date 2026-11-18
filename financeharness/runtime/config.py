@@ -2,9 +2,11 @@
 
 limits, error-recovery policy, and reader params.
 
-Precedence (low → high): built-in defaults < file (``configs/runtime.json``) <
-explicit ``overrides`` (programmatic) < environment variables. The loader never
-raises on a missing/malformed file — the harness always has a usable config.
+The defaults are the field defaults of the models below. The user's
+``runtime.json`` (see ``financeharness/paths.py``), programmatic ``overrides``
+and environment variables are layered over them in ``load_runtime_config``. The
+loader never raises on a missing or malformed file: the harness always has a
+usable config.
 Resource limits are anti-runaway *backstops* sized generous; the bounded round
 count is what guarantees termination.
 """
@@ -13,7 +15,6 @@ from __future__ import annotations
 
 import contextlib
 import copy
-import json
 import os
 from collections.abc import Callable, Mapping
 from pathlib import Path
@@ -21,9 +22,9 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-_DEFAULT_CONFIG_PATH = (
-    Path(__file__).resolve().parents[2] / "configs" / "runtime.json"
-)
+from financeharness.paths import config_file, read_json_object, reason_of, warn_once
+
+RUNTIME_FILE = "runtime.json"
 
 
 class _Section(BaseModel):
@@ -161,20 +162,23 @@ def load_runtime_config(
     env = None,
     overrides = None,
 ):
-  """Load the runtime config applying defaults < file < overrides < env."""
+  """Load the runtime config from the defaults, the file, ``overrides`` and ``env``.
+
+  ``path`` defaults to ``runtime.json`` in the user config directory. A file
+  that cannot be used is ignored as a whole, with one warning on stderr.
+  """
   env = os.environ if env is None else env
   merged = RuntimeConfig().model_dump()
 
-  p = Path(path) if path is not None else _DEFAULT_CONFIG_PATH
-  if p.exists():
-    try:
-      file_cfg = _strip_comments(json.loads(p.read_text()))
-      if isinstance(file_cfg, dict):
-        with_file = _deep_merge(merged, file_cfg)
-        RuntimeConfig(**with_file)  # a wrong key or value type raises ValueError
-        merged = with_file
-    except (json.JSONDecodeError, OSError, ValueError, TypeError):
-      pass  # malformed file → defaults; the harness must always run
+  p = Path(path) if path is not None else config_file(RUNTIME_FILE, env)
+  try:
+    file_cfg = read_json_object(p)
+    if file_cfg is not None:
+      with_file = _deep_merge(merged, _strip_comments(file_cfg))
+      RuntimeConfig(**with_file)  # a wrong value type raises ValueError
+      merged = with_file
+  except (OSError, ValueError, TypeError) as err:
+    warn_once(f"ignoring {p}: {reason_of(err)}; using defaults")
 
   if overrides:
     merged = _deep_merge(merged, _strip_comments(overrides))

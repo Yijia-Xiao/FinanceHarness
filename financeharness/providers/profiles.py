@@ -2,27 +2,24 @@
 
 A profile names a model, an OpenAI-compatible endpoint, the credential to use,
 generation defaults, and an optional quirk adapter. Profiles come from built-in
-defaults merged with an optional JSON file (``configs/providers.json``); the
-active default is chosen by ``FH_PROFILE`` env > file ``"default"`` key >
-``"gemini"`` (the built-in cloud default).
+defaults merged with the user's ``providers.json`` (see
+``financeharness/paths.py``).
 
-Design mirrors ``runtime/config.py`` precedence (defaults < file < env) and
-never raises on a missing/malformed file — the seam always has a usable default.
+Never raises on a missing or malformed file: the built-in profiles are always
+available, and every part of the file that is ignored is reported on stderr.
 """
 
 from __future__ import annotations
 
-import json
 import os
 from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-# Repo-relative default location for the profiles file (optional).
-_DEFAULT_PROFILES_PATH = (
-    Path(__file__).resolve().parents[2] / "configs" / "providers.json"
-)
+from financeharness.paths import config_file, read_json_object, reason_of, warn_once
+
+PROFILES_FILE = "providers.json"
 
 
 class Generation(BaseModel):
@@ -152,47 +149,55 @@ _DEFAULT_PROFILE_NAME = "gemini"
 
 
 def _read_file(path):
-  """Best-effort JSON read; returns {} on any problem (never raises)."""
+  """The profiles file as a dict: empty when absent or, with a warning, unusable."""
   try:
-    return json.loads(path.read_text())
-  except Exception:  # noqa: BLE001 — config is best-effort; fall back to defaults
+    return read_json_object(path) or {}
+  except (OSError, ValueError) as err:
+    warn_once(f"ignoring {path}: {reason_of(err)}; using the built-in profiles")
     return {}
+
+
+def _with_env(name, spec, env):
+  """``spec`` with the ``FH_<NAME>_BASE_URL`` and ``FH_<NAME>_MODEL`` overrides."""
+  key = f"FH_{name.upper().replace('-', '_')}"
+  base_override = env.get(f"{key}_BASE_URL")
+  model_override = env.get(f"{key}_MODEL")
+  if base_override:
+    spec = {**spec, "base_url": base_override}
+  if model_override:
+    spec = {**spec, "model": model_override}
+  return spec
 
 
 def load_profiles(
     path = None,
     env = None,
 ):
-  """Load all profiles: built-ins merged with the JSON file's ``profiles``
+  """Load all profiles: the built-ins, changed or extended by the file's ``profiles``.
 
-  (file wins per-name). Validation errors on a single file profile are
-  skipped, not fatal.
+  A file profile that is not valid is reported and skipped; when it overrides
+  a built-in profile, the built-in one is kept unchanged.
   """
-  raw: dict[str, dict[str, Any]] = {
-      k: dict(v) for k, v in _BUILTIN_PROFILES.items()
-  }
-
-  p = Path(path) if path is not None else _DEFAULT_PROFILES_PATH
-  file_data = _read_file(p) if p.exists() else {}
-  for name, spec in (file_data.get("profiles") or {}).items():
-    merged = {**raw.get(name, {}), **spec, "name": name}
-    raw[name] = merged
-
   e = env if env is not None else os.environ
-  profiles: dict[str, ModelProfile] = {}
-  for name, spec in raw.items():
-    # Per-profile overrides: FH_<NAME>_BASE_URL / FH_<NAME>_MODEL (NAME upper, - → _).
-    key = f"FH_{name.upper().replace('-', '_')}"
-    base_override = e.get(f"{key}_BASE_URL")
-    model_override = e.get(f"{key}_MODEL")
-    if base_override:
-      spec = {**spec, "base_url": base_override}
-    if model_override:
-      spec = {**spec, "model": model_override}
+  p = Path(path) if path is not None else config_file(PROFILES_FILE, e)
+  file_profiles = _read_file(p).get("profiles") or {}
+  if not isinstance(file_profiles, dict):
+    warn_once(f"ignoring \"profiles\" in {p}: it is not an object")
+    file_profiles = {}
+
+  profiles = {
+      name: ModelProfile(**_with_env(name, spec, e))
+      for name, spec in _BUILTIN_PROFILES.items()
+  }
+  for name, spec in file_profiles.items():
     try:
-      profiles[name] = ModelProfile(**spec)
-    except Exception:  # noqa: BLE001 — skip a malformed profile, keep the rest
-      continue
+      if not isinstance(spec, dict):
+        raise ValueError("it is not an object")
+      merged = {**_BUILTIN_PROFILES.get(name, {}), **spec, "name": name}
+      profiles[name] = ModelProfile(**_with_env(name, merged, e))
+    except (ValueError, TypeError) as err:
+      kept = "; keeping the built-in profile" if name in _BUILTIN_PROFILES else ""
+      warn_once(f"ignoring profile '{name}' in {p}: {reason_of(err)}{kept}")
   return profiles
 
 
@@ -200,18 +205,28 @@ def default_profile_name(
     path = None,
     env = None,
 ):
-  """Active default: ``FH_PROFILE`` env > file ``"default"`` > built-in (gemini).
+  """The active default profile: ``FH_PROFILE``, else the file's ``"default"``.
 
-  Falls back to the built-in default if the configured name is not a known
-  profile, so the reported default and the profile actually used never disagree.
+  A name that is not a known profile is reported and the built-in default is
+  used, so the reported default and the profile actually used never disagree.
   """
   e = env if env is not None else os.environ
-  p = Path(path) if path is not None else _DEFAULT_PROFILES_PATH
-  file_default = _read_file(p).get("default") if p.exists() else None
-  chosen = e.get("FH_PROFILE") or file_default or _DEFAULT_PROFILE_NAME
-  if chosen not in load_profiles(path=path, env=env):
-    return _DEFAULT_PROFILE_NAME
-  return chosen
+  p = Path(path) if path is not None else config_file(PROFILES_FILE, e)
+  known = load_profiles(path=path, env=env)
+  for source, chosen in (
+      ("FH_PROFILE", e.get("FH_PROFILE")),
+      (f"\"default\" in {p}", _read_file(p).get("default")),
+  ):
+    if not chosen:
+      continue
+    if isinstance(chosen, str) and chosen in known:
+      return chosen
+    warn_once(
+        f"ignoring {source}: {chosen!r} is not a known profile; using"
+        f" '{_DEFAULT_PROFILE_NAME}'"
+    )
+    break
+  return _DEFAULT_PROFILE_NAME
 
 
 def get_profile(
