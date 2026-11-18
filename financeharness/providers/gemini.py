@@ -150,9 +150,7 @@ class GeminiProvider(Provider):
         thinking_config=types.ThinkingConfig(include_thoughts=True),
         temperature=g.temperature,
         top_p=g.top_p,
-        max_output_tokens=max_tokens
-        if max_tokens is not None
-        else g.max_tokens,
+        max_output_tokens=max_tokens,
         # We dispatch tools ourselves; never let the SDK auto-execute.
         automatic_function_calling=types.AutomaticFunctionCallingConfig(
             disable=True

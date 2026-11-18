@@ -3,7 +3,7 @@
 The canonical "ask a question, get a cited report" helper used by the CLI. The
 full tool registry (web + equity/market data + valuation/risk compute, the
 latter deferred-but-callable) and the bundled skills are always assembled;
-``mode`` (and the legacy ``equity`` flag) select only the system-prompt variant.
+``mode`` selects only the system-prompt variant.
 """
 
 from __future__ import annotations
@@ -26,7 +26,6 @@ async def run_research(
     *,
     profile = None,
     reader_profile = None,
-    equity = False,
     skill_registry = None,
     history = None,
     clarifications = None,
@@ -43,8 +42,8 @@ async def run_research(
 
   ``profile`` is the orchestrator backbone; ``reader_profile`` is the model
   `visit` uses to read pages (a cloud backbone reads its own pages). ``mode``
-  (and the legacy ``equity`` flag) selects the system-prompt variant only — the
-  full tool registry is assembled either way. ``grounding_review`` overrides the
+  selects the system-prompt variant only: the full tool registry is assembled
+  either way. ``grounding_review`` overrides the
   self-grounding pass (default: on in research mode) — a comparison seam.
   """
   from financeharness.runtime.modes import get_mode, resolve_mode
@@ -55,7 +54,7 @@ async def run_research(
   # never strands the model with history that references a now-missing tool.
   # resolve_mode is the single source shared with the service's run_start frame,
   # so the advertised mode always matches the variant that actually runs.
-  variant = get_mode(resolve_mode(mode, equity=equity)).prompt_variant
+  variant = get_mode(resolve_mode(mode)).prompt_variant
 
   profile = profile or get_profile()
   # Pair the reader with the backbone (cloud backbones read with a cloud reader, so

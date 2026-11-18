@@ -55,8 +55,7 @@ def build_create_kwargs(
   entirely when empty (endpoints treat that as "no tool calling").
   """
   g = profile.generation
-  # Strip "_"-prefixed history keys (opaque provider state, e.g. another provider's
-  # "_native" threading items) — they're not valid wire fields for Chat Completions.
+  # Send copies without "_"-prefixed history keys: those are not wire fields.
   messages = [
       {k: v for k, v in m.items() if not k.startswith("_")} for m in messages
   ]
@@ -65,9 +64,10 @@ def build_create_kwargs(
       "messages": messages,
       "temperature": g.temperature,
       "top_p": g.top_p,
-      "max_tokens": max_tokens if max_tokens is not None else g.max_tokens,
       "presence_penalty": g.presence_penalty,
   }
+  if max_tokens is not None:
+    kwargs["max_tokens"] = max_tokens
   if tools:
     kwargs["tools"] = tools
     kwargs["tool_choice"] = tool_choice

@@ -19,6 +19,7 @@ from typing import Any
 
 from financeharness.providers import get_profile, load_profiles
 from financeharness.research import run_research, save_trajectory
+from financeharness.runtime.modes import resolve_mode
 from financeharness.tools.research import default_skill_registry
 
 
@@ -45,14 +46,13 @@ def _make_progress(quiet: bool):
 async def _research(args: argparse.Namespace) -> int:
   profile = get_profile(args.profile)
   reader = get_profile(args.reader) if args.reader else None
-  label = args.mode or ("analytical (--equity)" if args.equity else "research")
+  label = resolve_mode(args.mode)
   _err(f"[fh] {profile.model} · {label} · researching…")
   traj = await run_research(
       args.question,
       profile=profile,
       reader_profile=reader,
-      mode=args.mode,  # primary; falls back to the legacy `equity` flag when unset
-      equity=args.equity,
+      mode=args.mode,
       on_event=_make_progress(args.quiet),
   )
   _err(
@@ -150,11 +150,6 @@ def main() -> None:
           "execution mode (default: research). auto = web + tools; analytical ="
           " numbers-first."
       ),
-  )
-  ap.add_argument(
-      "--equity",
-      action="store_true",
-      help="(legacy alias for --mode analytical)",
   )
   ap.add_argument(
       "--profile",

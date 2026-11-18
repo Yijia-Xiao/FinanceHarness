@@ -23,17 +23,16 @@ PROFILES_FILE = "providers.json"
 
 
 class Generation(BaseModel):
-  """Sampling/budget defaults for a profile.
+  """Sampling defaults for a profile.
 
-  ``max_tokens`` here is the starting budget; the recovery layer may escalate
-  it.
+  The output token budget is not a profile setting: callers pass it from the
+  runtime config (``generation.max_tokens``, ``reader.max_tokens``).
   """
 
   model_config = ConfigDict(extra="forbid")
 
   temperature: float = 0.7
   top_p: float = 1.0
-  max_tokens: int = 4096
   presence_penalty: float = 0.0
 
 
@@ -108,7 +107,7 @@ _BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
         "api_key_env": "GEMINI_API_KEY",
         "reader_profile": "gemini",  # flash reads its own pages (compat path)
         "context_window": 1048576,
-        "generation": {"temperature": 0.7, "top_p": 0.95, "max_tokens": 16384},
+        "generation": {"temperature": 0.7, "top_p": 0.95},
     },
     "gpt": {
         "name": "gpt",
@@ -119,7 +118,6 @@ _BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
         "api_key_env": "OPENAI_API_KEY",
         "adapter": "openai",
         "reader_profile": "gpt",  # reads its own pages (Chat Completions path)
-        "generation": {"max_tokens": 16384},
     },
     "qwen": {
         "name": "qwen",
@@ -128,7 +126,7 @@ _BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
         "api_key_literal": "EMPTY",
         "adapter": "qwen",  # thinking mode + top_k
         "reader_profile": "qwen-reader",  # the local reader
-        "generation": {"temperature": 0.6, "top_p": 0.95, "max_tokens": 16384},
+        "generation": {"temperature": 0.6, "top_p": 0.95},
     },
     "qwen-reader": {
         "name": "qwen-reader",
@@ -141,7 +139,7 @@ _BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
             "top_k": 20,
             "chat_template_kwargs": {"enable_thinking": False},
         },
-        "generation": {"temperature": 0.7, "top_p": 0.95, "max_tokens": 8192},
+        "generation": {"temperature": 0.7, "top_p": 0.95},
     },
 }
 

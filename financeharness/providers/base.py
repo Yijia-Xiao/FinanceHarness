@@ -52,11 +52,6 @@ class AssistantTurn:
   content: str = ""
   tool_calls: list[ToolCall] = field(default_factory=list)
   finish_reason: str = "stop"
-  # Opaque, provider-native turn items threaded back verbatim on the next request
-  # — e.g. the OpenAI Responses reasoning items (encrypted) that must round-trip
-  # statelessly. Carried in the history under "_native"; only the provider that
-  # produced it reads it (the wire layer strips "_"-prefixed keys for everyone else).
-  native: list[dict[str, Any]] | None = None
 
   def to_message(self):
     """Render this turn as a chat-history message for the next request."""
@@ -71,8 +66,6 @@ class AssistantTurn:
           }
           for tc in self.tool_calls
       ]
-    if self.native is not None:
-      msg["_native"] = self.native
     return msg
 
 
