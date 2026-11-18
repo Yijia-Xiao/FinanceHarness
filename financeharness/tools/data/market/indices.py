@@ -32,35 +32,32 @@ _INDICES = {
 
 
 class MarketIndicesRequest(BaseModel):
-  """Input for the market-indices snapshot tool."""
+    """Input for the market-indices snapshot tool."""
 
 
 async def _handler(_req):
-  syms = list(_INDICES.values())
-  quotes = dict(
-      zip(
-          syms,
-          await asyncio.gather(*(last_quote(s) for s in syms)),
-          strict=True,
-      )
-  )
-  out: dict[str, dict] = {}
-  for name, sym in _INDICES.items():
-    q = quotes.get(sym)
-    if q is not None:
-      out[name] = {"level": q[0], "change_pct": q[1]}
-  if not out:
-    raise ToolError("no index data available right now (provider may be down)")
+    syms = list(_INDICES.values())
+    quotes = dict(
+        zip(
+            syms,
+            await asyncio.gather(*(last_quote(s) for s in syms)),
+            strict=True,
+        )
+    )
+    out: dict[str, dict] = {}
+    for name, sym in _INDICES.items():
+        q = quotes.get(sym)
+        if q is not None:
+            out[name] = {"level": q[0], "change_pct": q[1]}
+    if not out:
+        raise ToolError("no index data available right now (provider may be down)")
 
-  lines = [
-      f"  {name}: {num(d['level'])} ({d['change_pct']:+.2f}%)"
-      for name, d in out.items()
-  ]
-  return ToolResponse(
-      markdown="**Market indices:**\n" + "\n".join(lines),
-      structured={"indices": out},
-      meta={"provider": PROVIDER},
-  )
+    lines = [f"  {name}: {num(d['level'])} ({d['change_pct']:+.2f}%)" for name, d in out.items()]
+    return ToolResponse(
+        markdown="**Market indices:**\n" + "\n".join(lines),
+        structured={"indices": out},
+        meta={"provider": PROVIDER},
+    )
 
 
 SPEC = ToolSpec(

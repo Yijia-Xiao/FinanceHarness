@@ -28,51 +28,38 @@ _TENORS = {"3m": "^IRX", "5y": "^FVX", "10y": "^TNX", "30y": "^TYX"}
 
 
 class MarketRatesRequest(BaseModel):
-  """Input for the Treasury-yield snapshot tool."""
+    """Input for the Treasury-yield snapshot tool."""
 
 
 async def _handler(_req):
-  syms = list(_TENORS.values())
-  quotes = dict(
-      zip(
-          syms,
-          await asyncio.gather(*(last_quote(s) for s in syms)),
-          strict=True,
-      )
-  )
-  tenors = {
-      label: quotes[sym][0]
-      for label, sym in _TENORS.items()
-      if quotes.get(sym) is not None
-  }
-  if not tenors:
-    raise ToolError(
-        "no Treasury yield data available right now (provider may be down)"
+    syms = list(_TENORS.values())
+    quotes = dict(
+        zip(
+            syms,
+            await asyncio.gather(*(last_quote(s) for s in syms)),
+            strict=True,
+        )
     )
+    tenors = {
+        label: quotes[sym][0] for label, sym in _TENORS.items() if quotes.get(sym) is not None
+    }
+    if not tenors:
+        raise ToolError("no Treasury yield data available right now (provider may be down)")
 
-  ten_year = tenors.get("10y")
-  structured = {
-      "tenors_pct": tenors,
-      "ten_year_pct": ten_year,
-      # decimal form for direct WACC chaining (4.45% → 0.0445)
-      "risk_free_rate": (
-          round(ten_year / 100, 5) if ten_year is not None else None
-      ),
-  }
-  line = ", ".join(
-      f"{label} {num(tenors[label])}%" for label in _TENORS if label in tenors
-  )
-  rf = (
-      f"\nRisk-free (10y) = {num(ten_year)}% → {structured['risk_free_rate']}"
-      " for WACC."
-  )
-  return ToolResponse(
-      markdown=(
-          f"**US Treasury yields:** {line}{rf if ten_year is not None else ''}"
-      ),
-      structured=structured,
-      meta={"provider": PROVIDER},
-  )
+    ten_year = tenors.get("10y")
+    structured = {
+        "tenors_pct": tenors,
+        "ten_year_pct": ten_year,
+        # decimal form for direct WACC chaining (4.45% → 0.0445)
+        "risk_free_rate": (round(ten_year / 100, 5) if ten_year is not None else None),
+    }
+    line = ", ".join(f"{label} {num(tenors[label])}%" for label in _TENORS if label in tenors)
+    rf = f"\nRisk-free (10y) = {num(ten_year)}% → {structured['risk_free_rate']} for WACC."
+    return ToolResponse(
+        markdown=(f"**US Treasury yields:** {line}{rf if ten_year is not None else ''}"),
+        structured=structured,
+        meta={"provider": PROVIDER},
+    )
 
 
 SPEC = ToolSpec(

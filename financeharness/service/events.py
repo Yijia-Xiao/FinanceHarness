@@ -48,35 +48,35 @@ import json
 
 SSE_VERSION = "0.1"
 
-EVENT_TYPES = frozenset({
-    "run_start",
-    "round_start",
-    "reasoning",
-    "tool_call",
-    "tool_progress",
-    "tool_result",
-    "source",  # a page read by visit: {index, url, title, headline}, for the live sources rail
-    "plan",  # the live research plan from update_plan: {items:[{step,status}]}
-    "token",
-    "phase",  # a coarse processing-phase label (e.g. "grounding") for live status
-    "answer",
-    "error",
-    "done",
-    # clarify (scoping) stream
-    "context",
-    "clarify_result",
-})
+EVENT_TYPES = frozenset(
+    {
+        "run_start",
+        "round_start",
+        "reasoning",
+        "tool_call",
+        "tool_progress",
+        "tool_result",
+        "source",  # a page read by visit: {index, url, title, headline}, for the live sources rail
+        "plan",  # the live research plan from update_plan: {items:[{step,status}]}
+        "token",
+        "phase",  # a coarse processing-phase label (e.g. "grounding") for live status
+        "answer",
+        "error",
+        "done",
+        # clarify (scoping) stream
+        "context",
+        "clarify_result",
+    }
+)
 
 
 def sse_frame(event, data):
-  """Serialize one SSE frame.
+    """Serialize one SSE frame.
 
-  ``event`` must be a registered ``EVENT_TYPES`` member: an unknown type is a
-  programming error (drift), so we raise rather than ship an undocumented frame
-  a client can't handle.
-  """
-  if event not in EVENT_TYPES:
-    raise ValueError(
-        f"unknown SSE event type: {event!r} (add it to EVENT_TYPES)"
-    )
-  return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+    ``event`` must be a registered ``EVENT_TYPES`` member: an unknown type is a
+    programming error (drift), so we raise rather than ship an undocumented frame
+    a client can't handle.
+    """
+    if event not in EVENT_TYPES:
+        raise ValueError(f"unknown SSE event type: {event!r} (add it to EVENT_TYPES)")
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"

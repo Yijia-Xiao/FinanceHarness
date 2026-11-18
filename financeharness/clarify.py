@@ -65,62 +65,60 @@ quarter, naming a specific period only when the snapshot supports it."""
 
 
 class ClarifyQuestion(BaseModel):
-  """One scoping question the client can ask before research starts."""
+    """One scoping question the client can ask before research starts."""
 
-  id: str
-  question: str
-  options: list[str] = Field(default_factory=list)
-  allow_free_text: bool = True
+    id: str
+    question: str
+    options: list[str] = Field(default_factory=list)
+    allow_free_text: bool = True
 
 
 class ClarifyResult(BaseModel):
-  """Scoping outcome: proceed as-is or ask a small set of clarifying questions."""
+    """Scoping outcome: proceed as-is or ask a small set of clarifying questions."""
 
-  sufficient: bool = True
-  questions: list[ClarifyQuestion] = Field(default_factory=list)
-  assumptions: list[str] = Field(default_factory=list)
+    sufficient: bool = True
+    questions: list[ClarifyQuestion] = Field(default_factory=list)
+    assumptions: list[str] = Field(default_factory=list)
 
 
 def _to_result(obj):
-  """Validate the model's JSON into a ClarifyResult; fail-open on bad shape."""
-  try:
-    questions = []
-    for q in (obj.get("questions") or [])[:_MAX_QUESTIONS]:
-      if isinstance(q, dict) and q.get("question"):
-        questions.append(
-            ClarifyQuestion(
-                id=str(q.get("id") or f"q{len(questions) + 1}"),
-                question=str(q["question"]),
-                options=[str(o) for o in q.get("options") or []][:4],
-                allow_free_text=bool(q.get("allow_free_text", True)),
-            )
+    """Validate the model's JSON into a ClarifyResult; fail-open on bad shape."""
+    try:
+        questions = []
+        for q in (obj.get("questions") or [])[:_MAX_QUESTIONS]:
+            if isinstance(q, dict) and q.get("question"):
+                questions.append(
+                    ClarifyQuestion(
+                        id=str(q.get("id") or f"q{len(questions) + 1}"),
+                        question=str(q["question"]),
+                        options=[str(o) for o in q.get("options") or []][:4],
+                        allow_free_text=bool(q.get("allow_free_text", True)),
+                    )
+                )
+        sufficient = bool(obj.get("sufficient", not questions))
+        # If the model said insufficient but gave no usable questions, proceed.
+        if not questions:
+            sufficient = True
+        return ClarifyResult(
+            sufficient=sufficient,
+            questions=[] if sufficient else questions,
+            assumptions=[str(a) for a in obj.get("assumptions") or []][:3],
         )
-    sufficient = bool(obj.get("sufficient", not questions))
-    # If the model said insufficient but gave no usable questions, proceed.
-    if not questions:
-      sufficient = True
-    return ClarifyResult(
-        sufficient=sufficient,
-        questions=[] if sufficient else questions,
-        assumptions=[str(a) for a in obj.get("assumptions") or []][:3],
-    )
-  except Exception:  # noqa: BLE001 (fail-open)
-    return ClarifyResult(sufficient=True)
+    except Exception:  # noqa: BLE001 (fail-open)
+        return ClarifyResult(sufficient=True)
 
 
-async def _snapshot_hits(
-    question, backend
-):
-  try:
-    hits = await backend.search(question, 5)
-  except Exception:  # noqa: BLE001 (scoping proceeds without grounding)
-    return []
-  return [h for h in hits[:5] if h.title or h.snippet]
+async def _snapshot_hits(question, backend):
+    try:
+        hits = await backend.search(question, 5)
+    except Exception:  # noqa: BLE001 (scoping proceeds without grounding)
+        return []
+    return [h for h in hits[:5] if h.title or h.snippet]
 
 
 def _format_snapshot(hits):
-  lines = [f"- {h.title}: {h.snippet[:160]}" for h in hits]
-  return "\n".join(lines) or "(no search results)"
+    lines = [f"- {h.title}: {h.snippet[:160]}" for h in hits]
+    return "\n".join(lines) or "(no search results)"
 
 
 async def _scope_from_snapshot(
@@ -132,110 +130,107 @@ async def _scope_from_snapshot(
     cfg,
     today,
 ):
-  """The model call shared by the sync + streaming paths. Fail-open."""
-  user = (
-      f"Today's date is {today}.\n\nQuestion: {question}\n\nWeb"
-      f" snapshot:\n{snapshot}"
-  )
-  try:
-    resp = await complete(
-        profile,
-        [
-            {"role": "system", "content": SCOPE_PROMPT},
-            {"role": "user", "content": user},
-        ],
-        max_tokens=min(_SCOPE_MAX_TOKENS, cfg.reader.max_tokens),
-        client=client,
-    )
-    raw = resp.choices[0].message.content or ""
-  except Exception:  # noqa: BLE001 (never block research on a scoping failure)
-    return ClarifyResult(sufficient=True)
-  obj = extract_json_obj(raw)
-  return _to_result(obj) if obj else ClarifyResult(sufficient=True)
+    """The model call shared by the sync + streaming paths. Fail-open."""
+    user = f"Today's date is {today}.\n\nQuestion: {question}\n\nWeb snapshot:\n{snapshot}"
+    try:
+        resp = await complete(
+            profile,
+            [
+                {"role": "system", "content": SCOPE_PROMPT},
+                {"role": "user", "content": user},
+            ],
+            max_tokens=min(_SCOPE_MAX_TOKENS, cfg.reader.max_tokens),
+            client=client,
+        )
+        raw = resp.choices[0].message.content or ""
+    except Exception:  # noqa: BLE001 (never block research on a scoping failure)
+        return ClarifyResult(sufficient=True)
+    obj = extract_json_obj(raw)
+    return _to_result(obj) if obj else ClarifyResult(sufficient=True)
 
 
 async def scope_question(
     question,
     *,
-    profile = None,
-    backend = None,
-    client = None,
-    config = None,
-    today = None,
+    profile=None,
+    backend=None,
+    client=None,
+    config=None,
+    today=None,
 ):
-  """Light-search-grounded scoping pass → ClarifyResult. Never raises."""
-  # Scoping is a reasoning gate (judge specificity + draft 2–4 questions), so it runs
-  # on the backbone the question uses; the small reader under-asks on subtly ambiguous
-  # prompts. The service passes the active backbone; this default covers profile-less calls.
-  profile = profile or get_profile()
-  backend = backend or DdgsBackend()
-  cfg = config or load_runtime_config()
-  today = today or datetime.date.today().isoformat()
-  hits = await _snapshot_hits(question, backend)
-  return await _scope_from_snapshot(
-      question,
-      _format_snapshot(hits),
-      profile=profile,
-      client=client,
-      cfg=cfg,
-      today=today,
-  )
+    """Light-search-grounded scoping pass → ClarifyResult. Never raises."""
+    # Scoping is a reasoning gate (judge specificity + draft 2–4 questions), so it runs
+    # on the backbone the question uses; the small reader under-asks on subtly ambiguous
+    # prompts. The service passes the active backbone; this default covers profile-less calls.
+    profile = profile or get_profile()
+    backend = backend or DdgsBackend()
+    cfg = config or load_runtime_config()
+    today = today or datetime.date.today().isoformat()
+    hits = await _snapshot_hits(question, backend)
+    return await _scope_from_snapshot(
+        question,
+        _format_snapshot(hits),
+        profile=profile,
+        client=client,
+        cfg=cfg,
+        today=today,
+    )
 
 
 async def scope_question_stream(
     question,
     *,
-    on_event = None,
-    profile = None,
-    backend = None,
-    client = None,
-    config = None,
-    today = None,
+    on_event=None,
+    profile=None,
+    backend=None,
+    client=None,
+    config=None,
+    today=None,
 ):
-  """Streaming scoping: surface the context search as a transcript step + its
+    """Streaming scoping: surface the context search as a transcript step + its
 
-  hits (so the UI can show what's being read), then the scoping result. Same
-  fail-open contract as :func:`scope_question`.
-  """
-  emit = on_event or (lambda _k, _d: None)
-  profile = profile or get_profile()
-  backend = backend or DdgsBackend()
-  cfg = config or load_runtime_config()
-  today = today or datetime.date.today().isoformat()
+    hits (so the UI can show what's being read), then the scoping result. Same
+    fail-open contract as :func:`scope_question`.
+    """
+    emit = on_event or (lambda _k, _d: None)
+    profile = profile or get_profile()
+    backend = backend or DdgsBackend()
+    cfg = config or load_runtime_config()
+    today = today or datetime.date.today().isoformat()
 
-  emit("tool_call", {"name": "search", "args": {"query": question}, "round": 0})
-  t0 = time.monotonic()
-  hits = await _snapshot_hits(question, backend)
-  emit(
-      "tool_result",
-      {
-          "name": "search",
-          "ok": True,
-          "elapsed_s": round(time.monotonic() - t0, 2),
-          "round": 0,
-      },
-  )
-  emit("context", {"sources": [{"title": h.title, "url": h.url} for h in hits]})
+    emit("tool_call", {"name": "search", "args": {"query": question}, "round": 0})
+    t0 = time.monotonic()
+    hits = await _snapshot_hits(question, backend)
+    emit(
+        "tool_result",
+        {
+            "name": "search",
+            "ok": True,
+            "elapsed_s": round(time.monotonic() - t0, 2),
+            "round": 0,
+        },
+    )
+    emit("context", {"sources": [{"title": h.title, "url": h.url} for h in hits]})
 
-  result = await _scope_from_snapshot(
-      question,
-      _format_snapshot(hits),
-      profile=profile,
-      client=client,
-      cfg=cfg,
-      today=today,
-  )
-  emit("clarify_result", {"result": result.model_dump()})
-  return result
+    result = await _scope_from_snapshot(
+        question,
+        _format_snapshot(hits),
+        profile=profile,
+        client=client,
+        cfg=cfg,
+        today=today,
+    )
+    emit("clarify_result", {"result": result.model_dump()})
+    return result
 
 
 def format_clarifications(pairs):
-  """Render answered clarifications as a block appended to the research question."""
-  items = [
-      f"- {p.get('question', '').strip()} → {p.get('answer', '').strip()}"
-      for p in pairs or []
-      if p.get("answer")
-  ]
-  if not items:
-    return ""
-  return "\n\nClarifications from the user:\n" + "\n".join(items)
+    """Render answered clarifications as a block appended to the research question."""
+    items = [
+        f"- {p.get('question', '').strip()} → {p.get('answer', '').strip()}"
+        for p in pairs or []
+        if p.get("answer")
+    ]
+    if not items:
+        return ""
+    return "\n\nClarifications from the user:\n" + "\n".join(items)

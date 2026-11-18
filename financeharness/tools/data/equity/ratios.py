@@ -16,13 +16,13 @@ from pydantic import BaseModel, Field
 
 from financeharness.runtime.tool_registry import ToolError, ToolResponse, ToolSpec
 from financeharness.tools.data.equity.common import (
-  PROVIDER,
-  TICKER_MAX_LEN,
-  is_num,
-  money,
-  num,
-  pct,
-  yf_call,
+    PROVIDER,
+    TICKER_MAX_LEN,
+    is_num,
+    money,
+    num,
+    pct,
+    yf_call,
 )
 
 _DESCRIPTION = (
@@ -48,96 +48,88 @@ _RATIO_MAP = {
 
 
 class EquityRatiosRequest(BaseModel):
-  """Input for fetching ratio and valuation-multiple snapshots."""
+    """Input for fetching ratio and valuation-multiple snapshots."""
 
-  ticker: str = Field(
-      Ellipsis,
-      min_length=1,
-      max_length=TICKER_MAX_LEN,
-      description="Equity ticker (e.g. NVDA).",
-  )
+    ticker: str = Field(
+        Ellipsis,
+        min_length=1,
+        max_length=TICKER_MAX_LEN,
+        description="Equity ticker (e.g. NVDA).",
+    )
 
 
 def _derive(info):
-  """Safe derived figures the provider doesn't give directly."""
-  out: dict[str, Any] = {}
-  # yfinance reports debtToEquity as a percentage (e.g. 168.6 → 1.69x).
-  dte = info.get("debtToEquity")
-  if is_num(dte):
-    out["debt_to_equity"] = dte / 100.0
-  debt, cash = info.get("totalDebt"), info.get("totalCash")
-  if is_num(debt) and is_num(cash):
-    net_debt = debt - cash
-    out["net_debt"] = net_debt
-    ebitda = info.get("ebitda")
-    if is_num(ebitda) and ebitda:
-      out["net_debt_to_ebitda"] = net_debt / ebitda
-  # peg: newer yfinance exposes trailingPegRatio; fall back to pegRatio
-  peg = info.get("trailingPegRatio")
-  if not is_num(peg):
-    peg = info.get("pegRatio")
-  if is_num(peg):
-    out["peg_ratio"] = peg
-  # yfinance now reports dividendYield as a percent number (2.99 → 2.99%), not a
-  # fraction. Normalize to a fraction so it renders and chains consistently.
-  dy = info.get("dividendYield")
-  if is_num(dy):
-    out["dividend_yield"] = dy / 100.0
-  return out
+    """Safe derived figures the provider doesn't give directly."""
+    out: dict[str, Any] = {}
+    # yfinance reports debtToEquity as a percentage (e.g. 168.6 → 1.69x).
+    dte = info.get("debtToEquity")
+    if is_num(dte):
+        out["debt_to_equity"] = dte / 100.0
+    debt, cash = info.get("totalDebt"), info.get("totalCash")
+    if is_num(debt) and is_num(cash):
+        net_debt = debt - cash
+        out["net_debt"] = net_debt
+        ebitda = info.get("ebitda")
+        if is_num(ebitda) and ebitda:
+            out["net_debt_to_ebitda"] = net_debt / ebitda
+    # peg: newer yfinance exposes trailingPegRatio; fall back to pegRatio
+    peg = info.get("trailingPegRatio")
+    if not is_num(peg):
+        peg = info.get("pegRatio")
+    if is_num(peg):
+        out["peg_ratio"] = peg
+    # yfinance now reports dividendYield as a percent number (2.99 → 2.99%), not a
+    # fraction. Normalize to a fraction so it renders and chains consistently.
+    dy = info.get("dividendYield")
+    if is_num(dy):
+        out["dividend_yield"] = dy / 100.0
+    return out
 
 
 def _markdown(r, ticker):
-  return "\n".join([
-      f"**{ticker}** ratios & multiples:",
-      (
-          f"Liquidity: current {num(r.get('current_ratio'))}, "
-          f"quick {num(r.get('quick_ratio'))}"
-      ),
-      (
-          f"Leverage: debt/equity {num(r.get('debt_to_equity'))}x, "
-          f"net debt {money(r.get('net_debt'))}, "
-          f"net-debt/EBITDA {num(r.get('net_debt_to_ebitda'))}x"
-      ),
-      (
-          f"Returns: ROA {pct(r.get('return_on_assets'))}, "
-          f"ROE {pct(r.get('return_on_equity'))}"
-      ),
-      (
-          f"Multiples: P/E {num(r.get('trailing_pe'))} (fwd"
-          f" {num(r.get('forward_pe'))}), EV/EBITDA"
-          f" {num(r.get('ev_to_ebitda'))}, EV/rev"
-          f" {num(r.get('ev_to_revenue'))}, P/S {num(r.get('price_to_sales'))}"
-          f", PEG {num(r.get('peg_ratio'))}, div yield"
-          f" {pct(r.get('dividend_yield'))}"
-      ),
-  ])
+    return "\n".join(
+        [
+            f"**{ticker}** ratios & multiples:",
+            (
+                f"Liquidity: current {num(r.get('current_ratio'))}, "
+                f"quick {num(r.get('quick_ratio'))}"
+            ),
+            (
+                f"Leverage: debt/equity {num(r.get('debt_to_equity'))}x, "
+                f"net debt {money(r.get('net_debt'))}, "
+                f"net-debt/EBITDA {num(r.get('net_debt_to_ebitda'))}x"
+            ),
+            (
+                f"Returns: ROA {pct(r.get('return_on_assets'))}, "
+                f"ROE {pct(r.get('return_on_equity'))}"
+            ),
+            (
+                f"Multiples: P/E {num(r.get('trailing_pe'))} (fwd"
+                f" {num(r.get('forward_pe'))}), EV/EBITDA"
+                f" {num(r.get('ev_to_ebitda'))}, EV/rev"
+                f" {num(r.get('ev_to_revenue'))}, P/S {num(r.get('price_to_sales'))}"
+                f", PEG {num(r.get('peg_ratio'))}, div yield"
+                f" {pct(r.get('dividend_yield'))}"
+            ),
+        ]
+    )
 
 
 async def _handler(req):
-  import yfinance as yf
+    import yfinance as yf
 
-  ticker = req.ticker.upper()
-  info = await yf_call(
-      lambda: asyncio.to_thread(lambda: yf.Ticker(ticker).info)
-  )
-  if (
-      not info
-      or info.get("currentRatio") is None
-      and info.get("trailingPE") is None
-  ):
-    raise ToolError(f"no ratio data for '{ticker}': check the ticker")
+    ticker = req.ticker.upper()
+    info = await yf_call(lambda: asyncio.to_thread(lambda: yf.Ticker(ticker).info))
+    if not info or info.get("currentRatio") is None and info.get("trailingPE") is None:
+        raise ToolError(f"no ratio data for '{ticker}': check the ticker")
 
-  ratios = {
-      our: info.get(prov)
-      for prov, our in _RATIO_MAP.items()
-      if is_num(info.get(prov))
-  }
-  ratios.update(_derive(info))
-  return ToolResponse(
-      markdown=_markdown(ratios, ticker),
-      structured={"ticker": ticker, "ratios": ratios},
-      meta={"provider": PROVIDER},
-  )
+    ratios = {our: info.get(prov) for prov, our in _RATIO_MAP.items() if is_num(info.get(prov))}
+    ratios.update(_derive(info))
+    return ToolResponse(
+        markdown=_markdown(ratios, ticker),
+        structured={"ticker": ticker, "ratios": ratios},
+        meta={"provider": PROVIDER},
+    )
 
 
 SPEC = ToolSpec(

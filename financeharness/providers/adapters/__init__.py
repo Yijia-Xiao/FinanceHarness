@@ -27,14 +27,14 @@ _ADAPTERS: dict[str, Adapter] = {
 
 
 def apply_adapter(name, kwargs):
-  """Apply the named adapter to ``kwargs``; identity when name is falsy or
+    """Apply the named adapter to ``kwargs``; identity when name is falsy or
 
-  unknown (an unknown name degrades gracefully rather than failing the call).
-  """
-  if not name:
-    return kwargs
-  adapter = _ADAPTERS.get(name)
-  return adapter(kwargs) if adapter is not None else kwargs
+    unknown (an unknown name degrades gracefully rather than failing the call).
+    """
+    if not name:
+        return kwargs
+    adapter = _ADAPTERS.get(name)
+    return adapter(kwargs) if adapter is not None else kwargs
 
 
 __all__ = ["Adapter", "apply_adapter", "openai_adapter", "qwen_adapter"]

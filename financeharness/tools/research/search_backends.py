@@ -15,49 +15,48 @@ from typing import Protocol
 
 @dataclass(frozen=True)
 class SearchResult:
-  """One search hit returned by a backend."""
+    """One search hit returned by a backend."""
 
-  title: str
-  url: str
-  snippet: str
+    title: str
+    url: str
+    snippet: str
 
 
 class SearchBackend(Protocol):
-  """Minimal async protocol implemented by search providers."""
+    """Minimal async protocol implemented by search providers."""
 
-  name: str
+    name: str
 
-  async def search(self, query, max_results):
-    ...
+    async def search(self, query, max_results): ...
 
 
 class DdgsBackend:
-  """DuckDuckGo via the `ddgs` library.
+    """DuckDuckGo via the `ddgs` library.
 
-  Synchronous under the hood, so the blocking call runs in a worker thread.
-  """
+    Synchronous under the hood, so the blocking call runs in a worker thread.
+    """
 
-  name = "ddgs"
+    name = "ddgs"
 
-  async def search(self, query, max_results):
-    return await asyncio.to_thread(self._search_sync, query, max_results)
+    async def search(self, query, max_results):
+        return await asyncio.to_thread(self._search_sync, query, max_results)
 
-  @classmethod
-  def _search_sync(cls, query, max_results):
-    """Runs synchronous search using the DDGS library."""
-    from ddgs import DDGS
+    @classmethod
+    def _search_sync(cls, query, max_results):
+        """Runs synchronous search using the DDGS library."""
+        from ddgs import DDGS
 
-    rows = DDGS().text(query, max_results=max_results)
-    out: list[SearchResult] = []
-    for r in rows:
-      url = r.get("href") or r.get("url") or ""
-      if not url:
-        continue
-      out.append(
-          SearchResult(
-              title=(r.get("title") or "").strip(),
-              url=url,
-              snippet=(r.get("body") or "").strip(),
-          )
-      )
-    return out
+        rows = DDGS().text(query, max_results=max_results)
+        out: list[SearchResult] = []
+        for r in rows:
+            url = r.get("href") or r.get("url") or ""
+            if not url:
+                continue
+            out.append(
+                SearchResult(
+                    title=(r.get("title") or "").strip(),
+                    url=url,
+                    snippet=(r.get("body") or "").strip(),
+                )
+            )
+        return out

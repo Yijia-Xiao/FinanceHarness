@@ -36,31 +36,31 @@ _EMPTY_INSTRUCTION = (
 
 
 class ComposeCitationsRequest(BaseModel):
-  """Input for composing the current run's citation list."""
+    """Input for composing the current run's citation list."""
 
 
 def build_citations_spec(cache):
-  """Build the per-run `compose_citations` tool bound to the cache."""
+    """Build the per-run `compose_citations` tool bound to the cache."""
 
-  async def handler(_req):
-    citations = cache.citations
-    if not citations:
-      return ToolResponse(markdown=_EMPTY_INSTRUCTION, structured={"count": 0})
-    block = format_references_block(citations)
-    return ToolResponse(
-        markdown=block + _WRITE_INSTRUCTION,
-        structured={
-            "count": len(citations),
-            "citations": [c.url for c in citations],
-        },
+    async def handler(_req):
+        citations = cache.citations
+        if not citations:
+            return ToolResponse(markdown=_EMPTY_INSTRUCTION, structured={"count": 0})
+        block = format_references_block(citations)
+        return ToolResponse(
+            markdown=block + _WRITE_INSTRUCTION,
+            structured={
+                "count": len(citations),
+                "citations": [c.url for c in citations],
+            },
+        )
+
+    return ToolSpec(
+        name="compose_citations",
+        display_name="compose_citations",
+        tier="core",
+        description=_DESCRIPTION,
+        request_schema=ComposeCitationsRequest,
+        handler=handler,
+        tags=("research", "citations"),
     )
-
-  return ToolSpec(
-      name="compose_citations",
-      display_name="compose_citations",
-      tier="core",
-      description=_DESCRIPTION,
-      request_schema=ComposeCitationsRequest,
-      handler=handler,
-      tags=("research", "citations"),
-  )

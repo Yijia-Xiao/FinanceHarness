@@ -10,30 +10,30 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from financeharness.runtime.tool_registry import (
-  ToolResponse,
-  ToolSpec,
+    ToolResponse,
+    ToolSpec,
 )
 
 
 class LoadSkillRequest(BaseModel):
-  """Input for loading workflow recipes into the current run."""
+    """Input for loading workflow recipes into the current run."""
 
-  skills: list[str] = Field(
-      Ellipsis,
-      min_length=1,
-      description=(
-          "Skill names to load (kebab-case from the skills catalog), "
-          "e.g. ['dcf-valuation']. Batch them."
-      ),
-  )
+    skills: list[str] = Field(
+        Ellipsis,
+        min_length=1,
+        description=(
+            "Skill names to load (kebab-case from the skills catalog), "
+            "e.g. ['dcf-valuation']. Batch them."
+        ),
+    )
 
 
 def _render(spec, auto_loaded):
-  parts = [f"## Skill: `{spec.name}`", "", spec.body]
-  if auto_loaded:
-    names = ", ".join(f"`{n}`" for n in auto_loaded)
-    parts += ["", "---", f"Auto-loaded tools (callable now): {names}."]
-  return "\n".join(parts)
+    parts = [f"## Skill: `{spec.name}`", "", spec.body]
+    if auto_loaded:
+        names = ", ".join(f"`{n}`" for n in auto_loaded)
+        parts += ["", "---", f"Auto-loaded tools (callable now): {names}."]
+    return "\n".join(parts)
 
 
 def build_load_skill_spec(
@@ -42,49 +42,45 @@ def build_load_skill_spec(
     skill_registry,
     tool_registry,
 ):
-  """Build the per-run `load_skill` tool bound to the run's skill + tool state."""
+    """Build the per-run `load_skill` tool bound to the run's skill + tool state."""
 
-  async def handler(req):
-    parts: list[str] = []
-    loaded: list[str] = []
-    unknown: list[str] = []
-    for name in req.skills:
-      spec = skill_registry.get(name)
-      if spec is None:
-        unknown.append(name)
-        continue
-      skill_state.loaded.add(name)
-      auto: list[str] = []
-      if spec.requires_tools:
-        # auto-load required tools; silently skip any not registered
-        known = [
-            t for t in spec.requires_tools if tool_registry.get(t) is not None
-        ]
-        if known:
-          tool_state.load(known, tool_registry)
-          auto = known
-      parts.append(_render(spec, auto))
-      loaded.append(name)
-    if unknown:
-      parts.append(
-          f"Unknown skill(s): {unknown}. Available: {skill_registry.names()}"
-      )
-    return ToolResponse(
-        markdown="\n\n---\n\n".join(parts) if parts else "no skills loaded",
-        structured={"loaded": loaded, "unknown": unknown},
-        meta={"count": len(loaded)},
+    async def handler(req):
+        parts: list[str] = []
+        loaded: list[str] = []
+        unknown: list[str] = []
+        for name in req.skills:
+            spec = skill_registry.get(name)
+            if spec is None:
+                unknown.append(name)
+                continue
+            skill_state.loaded.add(name)
+            auto: list[str] = []
+            if spec.requires_tools:
+                # auto-load required tools; silently skip any not registered
+                known = [t for t in spec.requires_tools if tool_registry.get(t) is not None]
+                if known:
+                    tool_state.load(known, tool_registry)
+                    auto = known
+            parts.append(_render(spec, auto))
+            loaded.append(name)
+        if unknown:
+            parts.append(f"Unknown skill(s): {unknown}. Available: {skill_registry.names()}")
+        return ToolResponse(
+            markdown="\n\n---\n\n".join(parts) if parts else "no skills loaded",
+            structured={"loaded": loaded, "unknown": unknown},
+            meta={"count": len(loaded)},
+        )
+
+    return ToolSpec(
+        name="load_skill",
+        display_name="core.load_skill",
+        tier="core",
+        description=(
+            "Load one or more workflow-recipe skills (kebab-case from the skills"
+            " catalog) when the question matches. Each skill's required tools are"
+            " auto-loaded."
+        ),
+        request_schema=LoadSkillRequest,
+        handler=handler,
+        tags=("core", "meta"),
     )
-
-  return ToolSpec(
-      name="load_skill",
-      display_name="core.load_skill",
-      tier="core",
-      description=(
-          "Load one or more workflow-recipe skills (kebab-case from the skills"
-          " catalog) when the question matches. Each skill's required tools are"
-          " auto-loaded."
-      ),
-      request_schema=LoadSkillRequest,
-      handler=handler,
-      tags=("core", "meta"),
-  )

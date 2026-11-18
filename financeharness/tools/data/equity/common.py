@@ -35,41 +35,39 @@ TICKER_MAX_LEN = 24
 
 
 def is_num(v: Any) -> bool:
-  """True for a real, finite number: the guard before any arithmetic.
+    """True for a real, finite number: the guard before any arithmetic.
 
-  yfinance returns ``float('nan')`` for absent fields (and numpy scalars from
-  its DataFrames), which must not flow into math or the JSON-serialized
-  structured payload. ``numbers.Real`` covers both Python and numpy numerics;
-  bool is excluded.
-  """
-  return (
-      isinstance(v, numbers.Real) and not isinstance(v, bool) and math.isfinite(v)
-  )
+    yfinance returns ``float('nan')`` for absent fields (and numpy scalars from
+    its DataFrames), which must not flow into math or the JSON-serialized
+    structured payload. ``numbers.Real`` covers both Python and numpy numerics;
+    bool is excluded.
+    """
+    return isinstance(v, numbers.Real) and not isinstance(v, bool) and math.isfinite(v)
 
 
 def df_cell(v: Any) -> float | None:
-  """A DataFrame cell as a float, or ``None`` when it's NaN/absent.
+    """A DataFrame cell as a float, or ``None`` when it's NaN/absent.
 
-  The JSON-safe coercion for yfinance frames (a raw NaN must not reach the
-  structured payload).
-  """
-  return float(v) if is_num(v) else None
+    The JSON-safe coercion for yfinance frames (a raw NaN must not reach the
+    structured payload).
+    """
+    return float(v) if is_num(v) else None
 
 
 def is_transient_yf_error(err: BaseException) -> bool:
-  """Classify yfinance/provider failures worth retrying."""
+    """Classify yfinance/provider failures worth retrying."""
 
-  name = type(err).__name__
-  if name in {"HTTPError", "ConnectionError", "Timeout", "ReadTimeout"}:
-    return True
-  text = str(err).lower()
-  return "rate" in text or "429" in text or is_default_retryable(err)
+    name = type(err).__name__
+    if name in {"HTTPError", "ConnectionError", "Timeout", "ReadTimeout"}:
+        return True
+    text = str(err).lower()
+    return "rate" in text or "429" in text or is_default_retryable(err)
 
 
 async def yf_call[T](factory: Callable[[], Awaitable[T]]) -> T:
-  """Run an async yfinance attempt under transient retry.
+    """Run an async yfinance attempt under transient retry.
 
-  ``factory`` returns a fresh awaitable each call (wrap the blocking call with
-  ``asyncio.to_thread``).
-  """
-  return await with_retry(factory, retryable=is_transient_yf_error)
+    ``factory`` returns a fresh awaitable each call (wrap the blocking call with
+    ``asyncio.to_thread``).
+    """
+    return await with_retry(factory, retryable=is_transient_yf_error)

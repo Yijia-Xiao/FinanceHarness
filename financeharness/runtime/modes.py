@@ -24,17 +24,15 @@ DEFAULT_MODE = "auto"
 
 @dataclass(frozen=True)
 class ModeSpec:
-  """Execution-mode metadata used by the service, CLI, and prompt builder."""
+    """Execution-mode metadata used by the service, CLI, and prompt builder."""
 
-  name: str
-  prompt_variant: str  # key into prompts.PROMPT_VARIANTS
-  description: str
+    name: str
+    prompt_variant: str  # key into prompts.PROMPT_VARIANTS
+    description: str
 
 
 MODES: dict[str, ModeSpec] = {
-    "auto": ModeSpec(
-        "auto", "auto", description="Full toolkit; the agent decides."
-    ),
+    "auto": ModeSpec("auto", "auto", description="Full toolkit; the agent decides."),
     "research": ModeSpec(
         "research",
         "research",
@@ -49,17 +47,17 @@ MODES: dict[str, ModeSpec] = {
 
 
 def get_mode(name):
-  """Resolve a mode name to its spec; unknown / missing → the default mode."""
-  return MODES.get((name or "").strip().lower(), MODES[DEFAULT_MODE])
+    """Resolve a mode name to its spec; unknown / missing → the default mode."""
+    return MODES.get((name or "").strip().lower(), MODES[DEFAULT_MODE])
 
 
 def resolve_mode(name):
-  """Effective mode name from an explicit `name`, else web-first research.
+    """Effective mode name from an explicit `name`, else web-first research.
 
-  The single source the ``run_start`` frame and the agent's prompt variant both
-  use, so the advertised mode always matches the one that runs. An explicit name
-  is normalized (unknown → the default mode).
-  """
-  if name and name.strip():
-    return get_mode(name).name
-  return "research"
+    The single source the ``run_start`` frame and the agent's prompt variant both
+    use, so the advertised mode always matches the one that runs. An explicit name
+    is normalized (unknown → the default mode).
+    """
+    if name and name.strip():
+        return get_mode(name).name
+    return "research"

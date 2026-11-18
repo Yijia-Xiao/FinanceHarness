@@ -14,13 +14,13 @@ _UNSUPPORTED_SAMPLING = ("temperature", "top_p", "presence_penalty")
 
 
 def openai_adapter(kwargs):
-  """Rename ``max_tokens`` → ``max_completion_tokens`` and drop the sampling
+    """Rename ``max_tokens`` → ``max_completion_tokens`` and drop the sampling
 
-  params reasoning models reject. Pure (returns a new dict).
-  """
-  out = dict(kwargs)
-  if "max_tokens" in out:
-    out["max_completion_tokens"] = out.pop("max_tokens")
-  for key in _UNSUPPORTED_SAMPLING:
-    out.pop(key, None)
-  return out
+    params reasoning models reject. Pure (returns a new dict).
+    """
+    out = dict(kwargs)
+    if "max_tokens" in out:
+        out["max_completion_tokens"] = out.pop("max_tokens")
+    for key in _UNSUPPORTED_SAMPLING:
+        out.pop(key, None)
+    return out
