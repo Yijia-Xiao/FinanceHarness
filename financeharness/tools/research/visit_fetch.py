@@ -106,7 +106,7 @@ async def _fetch_once(url, timeout, sec_user_agent = _SEC_USER_AGENT):
           url=url, text="", ok=False, error="retryable:no extractable content"
       )
     return FetchedPage(url=url, text=text, ok=True)
-  except Exception as exc:  # noqa: BLE001 — surfaced as a failed page, never raised
+  except Exception as exc:  # noqa: BLE001 (surfaced as a failed page, never raised)
     return FetchedPage(
         url=url,
         text="",

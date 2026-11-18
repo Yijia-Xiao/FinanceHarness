@@ -1,4 +1,4 @@
-"""compute.valuation.wacc — CAPM cost of equity + optional WACC blend.
+"""compute.valuation.wacc: CAPM cost of equity + optional WACC blend.
 
 The discount-rate input to the valuation pipeline (wacc → dcf →
 dcf_sensitivity).
@@ -24,7 +24,7 @@ from financeharness.tools.compute.numeric import Finite
 from financeharness.tools.format import num, pct
 
 _DESCRIPTION = (
-    "Cost of capital via CAPM + optional WACC blend — the discount rate for"
+    "Cost of capital via CAPM + optional WACC blend: the discount rate for"
     " DCF. Always: risk_free_rate, equity_risk_premium, beta (CAPM cost of"
     " equity). Optionally cost_of_debt, tax_rate, debt_to_equity (all-or-none)"
     " for a WACC blend with after-tax cost of debt. β can come from"
@@ -137,7 +137,7 @@ def _markdown(res):
             f" {pct(c['equity_weight'])}, D/V {pct(c['debt_weight'])}"
         ),
         (
-            f"**WACC = {pct(res['wacc'])}** · premium over Rf"
+            f"**WACC = {pct(res['wacc'])}**, premium over Rf"
             f" {pct(res['wacc_premium_over_rf'])}"
         ),
     ]

@@ -1,4 +1,4 @@
-"""Quirk adapters — per-model transforms of the chat-completion kwargs.
+"""Quirk adapters: per-model transforms of the chat-completion kwargs.
 
 Most backbones need none (the vanilla kwargs work). An adapter exists for the
 handful of dialects that differ: ``qwen`` (open-weight models served via vLLM

@@ -1,4 +1,4 @@
-"""Compute tools — pure-math, vendor-agnostic valuation.
+"""Compute tools: pure-math, vendor-agnostic valuation.
 
 No network: compute tools consume numbers (often chained from data tools via
 `prev:<id>.<path>`) and return derived measures. Stateless deferred SPECs.

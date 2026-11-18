@@ -1,10 +1,10 @@
-"""Citation post-processing — pure end-of-run validation + bibliography.
+"""Citation post-processing: pure end-of-run validation + bibliography.
 
 Applied at the single exit (`Agent._build_result` via the `finalize` hook):
 strip any model-written References section and leaked markers, drop orphan
 `[N]` markers (numbers past the cache size), and append the canonical
 `## References` block when sources exist. When the cache is empty, no block is
-appended — the body is the complete deliverable.
+appended: the body is the complete deliverable.
 
 Pure functions over the citation list; no I/O.
 """

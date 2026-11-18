@@ -1,4 +1,4 @@
-"""data.equity.comps — relative valuation against a peer set.
+"""data.equity.comps: relative valuation against a peer set.
 
 Fetches the trading multiples of a target and a model-supplied peer group
 (yfinance), takes the peer medians, and applies them to the target's own metrics
@@ -10,9 +10,9 @@ picks
 the peers (it knows the comparables); the tool does the arithmetic faithfully.
 
 It also surfaces per-company fundamentals (market cap, margins, growth, ROE,
-leverage) — already in the fetched ``.info``, so a comps report can tabulate
-them
-from grounded data instead of improvising the peer table from prior knowledge.
+leverage), already in the fetched ``.info``, so a comps report can tabulate
+them from grounded data instead of improvising the peer table from prior
+knowledge.
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ _DESCRIPTION = (
     " current price. It also returns each company's fundamentals (market cap,"
     " margins, growth, ROE, net-debt/EBITDA), so the peer table can be built"
     " from these returned figures. The medians, implied per-share values, and"
-    " range it returns are exact and auditable — reference them directly rather"
+    " range it returns are exact and auditable: reference them directly rather"
     " than re-deriving the math by hand. Pair with a DCF for a triangulated"
     " valuation."
 )
@@ -56,7 +56,7 @@ _MULTIPLES = {
     "ps": "priceToSalesTrailing12Months",
 }
 
-# Descriptive per-company fields a comps report tabulates — already present in the
+# Descriptive per-company fields a comps report tabulates, already present in the
 # fetched .info, so surfacing them is free and keeps the peer table grounded.
 _STATS = {
     "market_cap": "marketCap",
@@ -233,7 +233,7 @@ def _markdown(
     stats,
 ):
   lines = [f"**{ticker}** relative valuation vs {res['n_peers']} peer(s):", ""]
-  # Trading multiples — target, each peer, then the peer median (drives the math).
+  # Trading multiples: target, each peer, then the peer median (drives the math).
   lines.append("_Trading multiples_")
   lines.append(_row("Company", [_LABELS[k] for k in _MULTIPLES]))
   lines.append(_row(ticker, [num(target_multiples.get(k)) for k in _MULTIPLES]))
@@ -243,7 +243,7 @@ def _markdown(
       _row("median", [num(res["peer_medians"].get(k)) for k in _MULTIPLES])
   )
   lines.append("")
-  # Fundamentals — same row order, the grounded per-peer figures for the report.
+  # Fundamentals: same row order, the grounded per-peer figures for the report.
   lines.append("_Fundamentals_")
   lines.append(_row("Company", [_STAT_LABELS[k] for k in _STAT_LABELS]))
   for sym in [ticker, *peer_multiples]:
@@ -262,7 +262,7 @@ def _markdown(
       mid = res["median_implied"]
       up = (mid - res["current_price"]) / res["current_price"] if mid else None
       lines.append(
-          f"Current price {money(res['current_price'])} · "
+          f"Current price {money(res['current_price'])}, "
           f"median-implied upside {pct(up) if up is not None else 'n/a'}"
       )
   else:
@@ -290,14 +290,14 @@ async def _handler(req):
       or t_info.get("trailingEps") is None
       and t_info.get("ebitda") is None
   ):
-    raise ToolError(f"no data for target '{target}' — check the ticker")
+    raise ToolError(f"no data for target '{target}': check the ticker")
 
   peer_multiples = {p: _multiples(results.get(p, {})) for p in peers}
   peer_multiples = {
       p: m for p, m in peer_multiples.items() if m
   }  # drop peers with no multiples
   if not peer_multiples:
-    raise ToolError("no usable peer multiples — check the peer tickers")
+    raise ToolError("no usable peer multiples: check the peer tickers")
 
   target_multiples = _multiples(t_info)
   stats = {

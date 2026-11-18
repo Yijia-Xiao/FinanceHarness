@@ -1,9 +1,9 @@
-"""The `visit` core tool — retrieve pages and extract grounded content.
+"""The `visit` core tool: retrieve pages and extract grounded content.
 
 For each URL: fetch (HTML via trafilatura, PDF via pdfplumber), then run a
 reader-model extraction over the page text returning ``{accessible, summary,
 evidence}``. Only accessible, non-empty pages are stored and added to the
-citation index — paywalls / bot-walls / empty pages are reported but never
+citation index: paywalls / bot-walls / empty pages are reported but never
 cited.
 
 Fetch and the reader client are injectable so the tool runs offline.
@@ -58,11 +58,10 @@ def _split_one(s):
 
 
 def _coerce_urls(v):
-  """Repair the URL-list shapes models actually emit: a lone string, a
+  """Repair the URL-list shapes models actually emit.
 
-  JSON-stringified array, or a comma / whitespace-joined string (also inside a
-  list element). In practice, ~89% of visit failures were malformed
-  multi-URL args.
+  A lone string, a JSON-stringified array, or a comma / whitespace-joined string
+  (also inside a list element).
   """
   if isinstance(v, str):
     return _split_one(v)
@@ -91,9 +90,9 @@ class VisitRequest(BaseModel):
 
 
 def _headline(summary):
-  """A one-line takeaway from the reader summary for the live sources rail —
+  """A one-line takeaway from the reader summary for the live sources rail.
 
-  the first sentence if it's a sensible length, else a truncation.
+  The first sentence if it's a sensible length, else a truncation.
   """
   s = " ".join(summary.split())  # collapse newlines/runs
   m = re.search(r"^(.+?[.!?])(\s|$)", s)
@@ -114,11 +113,11 @@ def _render(pages):
       if p.get("evidence"):
         lines.append(f"> {p['evidence']}")
     elif p.get("reader_error"):
-      # The reader itself failed (config/transport), not the page — surface it
+      # The reader itself failed (config/transport), not the page: surface it
       # distinctly so it isn't mistaken for a paywall (and so a misconfigured
       # reader is visible rather than looking like the whole web is blocked).
       lines.append(
-          f"⚠ reader error on {p['url']}: {p['reader_error']} — the page was "
+          f"Warning: reader error on {p['url']}: {p['reader_error']}. The page was "
           "fetched but the reader could not process it (a tool/config issue, "
           "not a paywall)."
       )
@@ -127,7 +126,7 @@ def _render(pages):
       # Anti-fabrication: a failed read is not evidence. Steer the model to
       # an alternative source rather than asserting from the snippet.
       lines.append(
-          f"✗ could not read {p['url']} — {reason}. It's unread, so rely on "
+          f"✗ could not read {p['url']}: {reason}. It's unread, so rely on "
           "another source or note the gap."
       )
     lines.append("")

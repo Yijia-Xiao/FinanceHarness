@@ -1,9 +1,9 @@
-"""data.equity.fundamentals — financial summary + multi-year income trend.
+"""data.equity.fundamentals: financial summary + multi-year income trend.
 
 Curated TTM financials from the provider snapshot plus a 4-year income trend
 (revenue / operating income / net income / EBITDA). The structured payload is a
 chaining surface for valuation tools (e.g. revenue + margins + FCF into a DCF).
-Numbers only — the model interprets.
+Numbers only: the model interprets.
 """
 
 from __future__ import annotations
@@ -91,21 +91,21 @@ def _markdown(
   lines = [
       f"**{ticker}** fundamentals (TTM):",
       (
-          f"Revenue {money(snap.get('total_revenue'))} · EBITDA"
-          f" {money(snap.get('ebitda'))} · FCF"
-          f" {money(snap.get('free_cashflow'))} · OCF"
+          f"Revenue {money(snap.get('total_revenue'))}, EBITDA"
+          f" {money(snap.get('ebitda'))}, FCF"
+          f" {money(snap.get('free_cashflow'))}, OCF"
           f" {money(snap.get('operating_cashflow'))}"
       ),
       (
-          f"Margins — gross {pct(snap.get('gross_margin'))}, op"
+          f"Margins: gross {pct(snap.get('gross_margin'))}, op"
           f" {pct(snap.get('operating_margin'))}, net"
-          f" {pct(snap.get('profit_margin'))} · ROE"
+          f" {pct(snap.get('profit_margin'))}; ROE"
           f" {pct(snap.get('return_on_equity'))}"
       ),
       (
-          f"Cash {money(snap.get('total_cash'))} · Debt"
-          f" {money(snap.get('total_debt'))} · Rev growth"
-          f" {pct(snap.get('revenue_growth'))} · EPS ttm/fwd"
+          f"Cash {money(snap.get('total_cash'))}, Debt"
+          f" {money(snap.get('total_debt'))}, Rev growth"
+          f" {pct(snap.get('revenue_growth'))}, EPS ttm/fwd"
           f" {num(snap.get('trailing_eps'))}/{num(snap.get('forward_eps'))}"
       ),
   ]
@@ -135,7 +135,7 @@ async def _handler(req):
       or info.get("totalRevenue") is None
       and not (inc is not None and not inc.empty)
   ):
-    raise ToolError(f"no fundamentals for '{ticker}' — check the ticker")
+    raise ToolError(f"no fundamentals for '{ticker}': check the ticker")
 
   snap = {
       our: info.get(prov)

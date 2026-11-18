@@ -1,10 +1,9 @@
-"""Clarification scoping — the pre-research alignment pass.
+"""Clarification scoping: the pre-research alignment pass.
 
 Before a full deep-research run, `scope_question` does a light search and a
 single backbone call to judge whether the question is specific enough. If not,
 it returns 2–4 concrete clarifying questions (each with suggested options) so
-the
-client can align scope with the user, then weave the answers back into research.
+the client can align scope with the user, then weave the answers back into research.
 
 Model-decided (skips clarification when the question is already specific) and
 fail-open (any error → proceed without clarifying, never block research).
@@ -36,15 +35,15 @@ research well as-is, or whether it is genuinely ambiguous in a way that would se
 the research in materially different directions.
 
 Strongly prefer proceeding. Default to sufficient=true and record sensible \
-defaults as assumptions — a capable analyst makes reasonable choices (the most \
+defaults as assumptions: a capable analyst makes reasonable choices (the most \
 recent reported period, the primary US-listed entity, USD, a balanced angle) \
-rather than asking. A specific company with a clear intent is sufficient — do not \
+rather than asking. A specific company with a clear intent is sufficient: do not \
 ask about time horizon, currency, depth, or angle when a reasonable default applies; \
 and when a dominant entity is clearly implied ("the chip leader" → NVIDIA), assume \
 it and proceed.
 
 The one case you MUST ask: when the question names no identifiable company, ticker, \
-or sector to research at all — it refers to "the company", "it", "them", or "the \
+or sector to research at all: it refers to "the company", "it", "them", or "the \
 stock" with no antecedent and the snapshot doesn't pin one down. There is no \
 reasonable default for *which entity*, so ask which one. Otherwise, set \
 sufficient=false only when distinct interpretations would genuinely produce \
@@ -52,11 +51,11 @@ different research.
 
 Return ONLY a JSON object:
   "sufficient": true unless the question is genuinely ambiguous (per above).
-  "assumptions": up to 3 short strings — the defaults you are proceeding with \
+  "assumptions": up to 3 short strings, the defaults you are proceeding with \
 (e.g. "most recent reported quarter", "USD", "the US-listed entity").
   "questions": [] when sufficient; otherwise 2–4 objects, each {"id": short-slug, \
 "question": the clarifying question, "options": 2–4 concrete answers with the \
-most-likely first, "allow_free_text": true} — asking only what genuinely blocks \
+most-likely first, "allow_free_text": true}. Ask only what genuinely blocks \
 the research.
 
 Anchor every time reference to today's date (given below) and the web snapshot; \
@@ -105,7 +104,7 @@ def _to_result(obj):
         questions=[] if sufficient else questions,
         assumptions=[str(a) for a in obj.get("assumptions") or []][:3],
     )
-  except Exception:  # noqa: BLE001 — fail-open
+  except Exception:  # noqa: BLE001 (fail-open)
     return ClarifyResult(sufficient=True)
 
 
@@ -114,7 +113,7 @@ async def _snapshot_hits(
 ):
   try:
     hits = await backend.search(question, 5)
-  except Exception:  # noqa: BLE001 — scoping proceeds without grounding
+  except Exception:  # noqa: BLE001 (scoping proceeds without grounding)
     return []
   return [h for h in hits[:5] if h.title or h.snippet]
 
@@ -149,7 +148,7 @@ async def _scope_from_snapshot(
         client=client,
     )
     raw = resp.choices[0].message.content or ""
-  except Exception:  # noqa: BLE001 — never block research on a scoping failure
+  except Exception:  # noqa: BLE001 (never block research on a scoping failure)
     return ClarifyResult(sufficient=True)
   obj = extract_json_obj(raw)
   return _to_result(obj) if obj else ClarifyResult(sufficient=True)
@@ -166,7 +165,7 @@ async def scope_question(
 ):
   """Light-search-grounded scoping pass → ClarifyResult. Never raises."""
   # Scoping is a reasoning gate (judge specificity + draft 2–4 questions), so it runs
-  # on the backbone the question uses — the small reader under-asks on subtly ambiguous
+  # on the backbone the question uses; the small reader under-asks on subtly ambiguous
   # prompts. The service passes the active backbone; this default covers profile-less calls.
   profile = profile or get_profile()
   backend = backend or DdgsBackend()

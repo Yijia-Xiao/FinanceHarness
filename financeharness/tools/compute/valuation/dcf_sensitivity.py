@@ -1,11 +1,10 @@
-"""compute.valuation.dcf_sensitivity — a DCF value across a 2-D driver grid.
+"""compute.valuation.dcf_sensitivity: a DCF value across a 2-D driver grid.
 
 Reuses the DCF core (`compute_dcf`) to value every cell of a discount-rate ×
 terminal-driver grid, so an analyst sees how intrinsic value moves with the two
-assumptions that dominate it — and reads a bear/base/bull range straight off the
+assumptions that dominate it, and reads a bear/base/bull range straight off the
 table. Pure-math; each cell is a faithful DCF, invalid cells (e.g. g ≥ r) are
-left
-blank rather than fudged.
+left blank rather than fudged.
 """
 
 from __future__ import annotations
@@ -21,7 +20,7 @@ from financeharness.tools.format import money, num, pct
 
 _DESCRIPTION = (
     "DCF sensitivity grid: values intrinsic value across a range of discount"
-    " rates (rows) and a terminal driver (columns) — terminal_growth_rates for"
+    " rates (rows) and a terminal driver (columns): terminal_growth_rates for"
     " gordon_growth, or terminal_ebitda_multiples for exit_multiple. Takes the"
     " same FCF schedule / net_debt / shares as the DCF tool plus the two axes,"
     " and returns the value matrix with the bear/base/bull range. Use it to"
@@ -105,7 +104,7 @@ def _cell_value(
 ):
   """One DCF at (discount_rate=dr, terminal driver=col).
 
-  None if the cell is not a valid DCF (e.g. g ≥ r) — surfaced as a blank, never
+  None if the cell is not a valid DCF (e.g. g ≥ r): surfaced as a blank, never
   fudged.
   """
   kw: dict[str, Any] = {
@@ -156,7 +155,7 @@ def compute_sensitivity(req):
 
 
 def _fmt(v):
-  return "  —  " if v is None else money(v)
+  return " n/a " if v is None else money(v)
 
 
 def _markdown(res):
@@ -169,7 +168,7 @@ def _markdown(res):
       + " | "
       + " | ".join(col_fmt(c) for c in res["terminal_axis"])
   )
-  rows = [header, "—" * len(header)]
+  rows = [header, "-" * len(header)]
   for dr, row in zip(res["discount_rates"], res["grid"], strict=True):
     rows.append(f"{pct(dr):>6} | " + " | ".join(_fmt(v) for v in row))
   label = "intrinsic value/share" if per_share else "equity value"
@@ -181,7 +180,7 @@ def _markdown(res):
   title = (
       "**DCF sensitivity** ("
       + ("Gordon growth" if is_gordon else "exit multiple")
-      + f") — {label}\n"
+      + f"): {label}\n"
   )
   return title + "\n".join(rows) + summary
 

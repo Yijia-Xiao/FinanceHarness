@@ -1,12 +1,10 @@
-"""data.equity.ratios — financial-health ratios + valuation multiples.
+"""data.equity.ratios: financial-health ratios + valuation multiples.
 
 Complements `data.equity.fundamentals` (size, margins, cash flow) with the ratio
 view an analyst reaches for: liquidity, leverage, returns on assets/equity, and
-the
-company's own valuation multiples. Numbers from the provider snapshot (yfinance)
-plus
-a couple of safe derived figures (net debt, net-debt/EBITDA). Numbers only — the
-model interprets and compares.
+the company's own valuation multiples. Numbers from the provider snapshot
+(yfinance) plus a couple of safe derived figures (net debt, net-debt/EBITDA).
+Numbers only: the model interprets and compares.
 """
 
 from __future__ import annotations
@@ -81,7 +79,7 @@ def _derive(info):
   if is_num(peg):
     out["peg_ratio"] = peg
   # yfinance now reports dividendYield as a percent number (2.99 → 2.99%), not a
-  # fraction — normalize to a fraction so it renders and chains consistently.
+  # fraction. Normalize to a fraction so it renders and chains consistently.
   dy = info.get("dividendYield")
   if is_num(dy):
     out["dividend_yield"] = dy / 100.0
@@ -92,24 +90,24 @@ def _markdown(r, ticker):
   return "\n".join([
       f"**{ticker}** ratios & multiples:",
       (
-          f"Liquidity — current {num(r.get('current_ratio'))} · "
+          f"Liquidity: current {num(r.get('current_ratio'))}, "
           f"quick {num(r.get('quick_ratio'))}"
       ),
       (
-          f"Leverage — debt/equity {num(r.get('debt_to_equity'))}x · "
-          f"net debt {money(r.get('net_debt'))} · "
+          f"Leverage: debt/equity {num(r.get('debt_to_equity'))}x, "
+          f"net debt {money(r.get('net_debt'))}, "
           f"net-debt/EBITDA {num(r.get('net_debt_to_ebitda'))}x"
       ),
       (
-          f"Returns — ROA {pct(r.get('return_on_assets'))} · "
+          f"Returns: ROA {pct(r.get('return_on_assets'))}, "
           f"ROE {pct(r.get('return_on_equity'))}"
       ),
       (
-          f"Multiples — P/E {num(r.get('trailing_pe'))} (fwd"
-          f" {num(r.get('forward_pe'))}) · EV/EBITDA"
-          f" {num(r.get('ev_to_ebitda'))} · EV/rev"
-          f" {num(r.get('ev_to_revenue'))} · P/S {num(r.get('price_to_sales'))}"
-          f" · PEG {num(r.get('peg_ratio'))} · div yield"
+          f"Multiples: P/E {num(r.get('trailing_pe'))} (fwd"
+          f" {num(r.get('forward_pe'))}), EV/EBITDA"
+          f" {num(r.get('ev_to_ebitda'))}, EV/rev"
+          f" {num(r.get('ev_to_revenue'))}, P/S {num(r.get('price_to_sales'))}"
+          f", PEG {num(r.get('peg_ratio'))}, div yield"
           f" {pct(r.get('dividend_yield'))}"
       ),
   ])
@@ -127,7 +125,7 @@ async def _handler(req):
       or info.get("currentRatio") is None
       and info.get("trailingPE") is None
   ):
-    raise ToolError(f"no ratio data for '{ticker}' — check the ticker")
+    raise ToolError(f"no ratio data for '{ticker}': check the ticker")
 
   ratios = {
       our: info.get(prov)

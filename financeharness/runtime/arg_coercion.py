@@ -1,15 +1,15 @@
-"""Argument coercion — repair model-emitted args before validation.
+"""Argument coercion: repair model-emitted args before validation.
 
 A boundary concern at the dispatcher: some models emit a *structured* argument
 (list/dict/nested model) as a JSON-encoded **string**, or wrap a lone ``prev:``
 reference in a 1-element list. Both repairs here are **schema-driven** (the
 request schema is the source of truth for which fields are structured) and run
-before chaining + Pydantic validation. Neither raises — an unrepairable value is
+before chaining + Pydantic validation. Neither raises: an unrepairable value is
 left as-is and Pydantic surfaces the path-aware error the model self-corrects
 on.
 
 (The aggressive flat-list/URL coercions for the no-schema research tools live
-with those tools, not here — this module is the registry path only.)
+with those tools, not here. This module is the registry path only.)
 """
 
 from __future__ import annotations
@@ -31,10 +31,10 @@ _REF_PREFIX = "prev:"
 
 
 def _expects_container(annotation):
-  """True when a field's declared type is a structured container the model
+  """True when a field's declared type is a structured container.
 
-  might have JSON-stringified — list/dict/tuple/set (optionally
-  Optional/Union-wrapped) or a nested Pydantic model.
+  These are the types the model might have JSON-stringified: list/dict/tuple/set
+  (optionally Optional/Union-wrapped) or a nested Pydantic model.
   """
   origin = typing.get_origin(annotation)
   if origin in _UNION_ORIGINS:
@@ -65,7 +65,7 @@ def _is_list_of_scalar(annotation):
     return False
   inner_args = typing.get_args(annotation)
   if not inner_args:
-    return False  # bare `list` — can't introspect; be conservative
+    return False  # bare `list`: can't introspect; be conservative
   inner = inner_args[0]
   inner_origin = typing.get_origin(inner)
   if inner_origin in _CONTAINER_ORIGINS or inner in _CONTAINER_ORIGINS:

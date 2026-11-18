@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""FinanceHarness — headless one-shot research entry point (source-checkout).
+"""FinanceHarness headless one-shot research entry point (source checkout).
 
 A thin wrapper so ``python main.py ...`` runs exactly the same CLI as the
 installed ``financeharness`` / ``fh`` commands (``financeharness.cli:main``).

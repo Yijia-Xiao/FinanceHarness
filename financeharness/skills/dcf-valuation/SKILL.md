@@ -1,6 +1,6 @@
 ---
 name: dcf-valuation
-description: Estimate a public equity's intrinsic value with a discounted-cash-flow model — pull fundamentals, set a discount rate via CAPM/WACC, project free cash flow, and discount it.
+description: Estimate a public equity's intrinsic value with a discounted-cash-flow model (pull fundamentals, set a discount rate via CAPM/WACC, project free cash flow, and discount it).
 tags: [equity, valuation, dcf, intrinsic-value]
 requires_tools:
   - data_equity_reference
@@ -18,7 +18,7 @@ Estimate intrinsic value per share with a transparent, grounded DCF.
 1.  **Anchor the company.** `data_equity_reference` for shares outstanding,
     beta, and current price; `data_equity_fundamentals` for revenue, free cash
     flow, margins, growth, and total cash/debt.
-2.  **Discount rate.** `compute_valuation_wacc` — CAPM cost of equity from a
+2.  **Discount rate.** `compute_valuation_wacc`: CAPM cost of equity from a
     risk-free rate, an equity risk premium, and the beta you pulled; add the
     debt trio for a WACC blend when leverage is material. Use the resulting
     rate.
@@ -35,9 +35,9 @@ Estimate intrinsic value per share with a transparent, grounded DCF.
 
 ## Principles
 
--   Make every assumption explicit (growth, discount rate, terminal method) — a
+-   Make every assumption explicit (growth, discount rate, terminal method): a
     DCF is only as credible as its inputs, and the reader needs to see them.
 -   Prefer chaining real figures (fundamentals → FCF → DCF) over restating
     numbers by hand; let the tools carry the arithmetic.
 -   A high terminal-value share of enterprise value is worth flagging, not
-    hiding — report the number and let the reader weigh it.
+    hiding: report the number and let the reader weigh it.

@@ -22,12 +22,12 @@ Event sequence (research stream):
   grounding)
   answer       {content}                        when the model writes the report
   error        {error}                          on a failed run
-  done         {trajectory}                     once, last — the full trajectory
+  done         {trajectory}                     once, last: the full trajectory
                                                  (same shape as the sync body)
 
 Clarify (scoping) stream reuses tool_call/tool_result, then ends with:
   context        {…}                            the gathered context
-  clarify_result {result}                       once, last — the scoping outcome
+  clarify_result {result}                       once, last: the scoping outcome
 
 ``EVENT_TYPES`` below is the single source of truth: ``sse_frame`` rejects any
 event not in it, so a typo'd or undocumented frame fails fast instead of
@@ -55,7 +55,7 @@ EVENT_TYPES = frozenset({
     "tool_call",
     "tool_progress",
     "tool_result",
-    "source",  # a page read by visit: {index, url, title, headline} — live sources rail
+    "source",  # a page read by visit: {index, url, title, headline}, for the live sources rail
     "plan",  # the live research plan from update_plan: {items:[{step,status}]}
     "token",
     "phase",  # a coarse processing-phase label (e.g. "grounding") for live status
@@ -71,7 +71,7 @@ EVENT_TYPES = frozenset({
 def sse_frame(event, data):
   """Serialize one SSE frame.
 
-  ``event`` must be a registered ``EVENT_TYPES`` member — an unknown type is a
+  ``event`` must be a registered ``EVENT_TYPES`` member: an unknown type is a
   programming error (drift), so we raise rather than ship an undocumented frame
   a client can't handle.
   """

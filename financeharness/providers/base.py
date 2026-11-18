@@ -1,4 +1,4 @@
-"""Provider abstraction — a uniform turn interface over heterogeneous backbones.
+"""Provider abstraction: a uniform turn interface over heterogeneous backbones.
 
 Each backbone speaks a different wire protocol (OpenAI-compatible Chat
 Completions,
@@ -19,7 +19,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-# on_delta(kind, text) with kind in {"reasoning", "content"} — the streaming seam.
+# on_delta(kind, text) with kind in {"reasoning", "content"}: the streaming seam.
 DeltaCallback = Callable[[str, str], None]
 
 
@@ -28,8 +28,8 @@ class ToolCall:
   """A normalized tool call.
 
   ``arguments`` is the raw JSON string the model emitted (parsed at dispatch).
-  ``extra`` carries opaque provider state that must round-trip — e.g. Gemini's
-  ``thought_signature`` — echoed back verbatim on the next turn or multi-turn
+  ``extra`` carries opaque provider state that must round-trip (e.g. Gemini's
+  ``thought_signature``), echoed back verbatim on the next turn or multi-turn
   tool calling fails. ``id`` is what the API sent, empty when it sent none;
   the agent loop assigns the id used for the rest of the run.
   """

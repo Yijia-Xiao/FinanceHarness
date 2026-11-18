@@ -1,4 +1,4 @@
-# FinanceHarness — headless entrypoints. `make help` lists targets.
+# FinanceHarness headless entrypoints. `make help` lists targets.
 .DEFAULT_GOAL := help
 .PHONY: help install run serve test lint
 

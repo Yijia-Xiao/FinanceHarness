@@ -1,4 +1,4 @@
-"""The `calc` tool — exact arithmetic so the model never computes in its head.
+"""The `calc` tool: exact arithmetic so the model never computes in its head.
 
 A safe AST evaluator over numbers, the standard operators, and a small whitelist
 of functions. LLMs are reliable at reasoning and unreliable at arithmetic (a
@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 from financeharness.runtime.tool_registry import ToolError, ToolResponse, ToolSpec
 
 _DESCRIPTION = (
-    "Evaluate an arithmetic expression exactly and return the result — use it"
+    "Evaluate an arithmetic expression exactly and return the result. Use it"
     " for growth rates, ratios, percentages, and sums so the figures are exact"
     " and auditable, e.g. '(37-13)/13*100' for a percent change. Supports + - *"
     " / ** % // , parentheses, and abs/round/min/max/sqrt/log/exp."
@@ -115,7 +115,7 @@ def _eval_node(node):
   ):
     return _FUNCS[node.func.id](*(_eval(a) for a in node.args))
   raise ToolError(
-      "unsupported expression — numbers, + - * / ** % //, () and "
+      "unsupported expression: numbers, + - * / ** % //, () and "
       "abs/round/min/max/sqrt/log/exp only"
   )
 
@@ -132,7 +132,7 @@ def safe_eval(expression):
     return _eval(tree.body)
   except ToolError:
     raise
-  except Exception as exc:  # noqa: BLE001 — parse/arithmetic errors → clean ToolError
+  except Exception as exc:  # noqa: BLE001 (parse/arithmetic errors → clean ToolError)
     raise ToolError(f"could not evaluate '{expression}': {exc}") from exc
 
 
@@ -162,7 +162,7 @@ async def _handler(req):
 SPEC = ToolSpec(
     name="calc",
     display_name="calc",
-    tier="core",  # always visible — arithmetic comes up in every mode
+    tier="core",  # always visible: arithmetic comes up in every mode
     description=_DESCRIPTION,
     request_schema=CalcRequest,
     handler=_handler,

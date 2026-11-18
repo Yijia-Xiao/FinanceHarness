@@ -1,4 +1,4 @@
-"""`financeharness` (alias `fh`) — the command-line interface.
+"""`financeharness` (alias `fh`): the command-line interface.
 
 Headless one-shot research (progress to stderr, report to stdout, pipeable):
 
@@ -32,7 +32,7 @@ def _make_progress(quiet: bool):
     if quiet:
       return
     if kind == "round_start":
-      _err(f"  ── round {data['round']}")
+      _err(f"  round {data['round']}")
     elif kind == "tool_call":
       _err(f"     → {data['name']}")
     elif kind == "tool_result":
@@ -47,7 +47,7 @@ async def _research(args: argparse.Namespace) -> int:
   profile = get_profile(args.profile)
   reader = get_profile(args.reader) if args.reader else None
   label = resolve_mode(args.mode)
-  _err(f"[fh] {profile.model} · {label} · researching…")
+  _err(f"[fh] {profile.model}, {label}: researching…")
   traj = await run_research(
       args.question,
       profile=profile,
@@ -56,8 +56,8 @@ async def _research(args: argparse.Namespace) -> int:
       on_event=_make_progress(args.quiet),
   )
   _err(
-      f"[fh] {traj['termination']} · {traj['rounds']} rounds · "
-      f"{len(traj['citations'])} sources · {traj['elapsed_s']}s"
+      f"[fh] {traj['termination']}: {traj['rounds']} rounds, "
+      f"{len(traj['citations'])} sources, {traj['elapsed_s']}s"
   )
   if traj.get("error") and args.quiet:
     _err(f"[fh] error: {traj['error']}")
@@ -68,10 +68,10 @@ async def _research(args: argparse.Namespace) -> int:
 
 
 def _serve(argv: list[str]) -> int:
-  """`fh serve` — run the HTTP+SSE service.
+  """`fh serve`: run the HTTP+SSE service.
 
   Use --reload in dev so code changes are picked up (plain uvicorn does NOT
-  auto-reload — a restart is otherwise required).
+  auto-reload; a restart is otherwise required).
   """
   ap = argparse.ArgumentParser(
       prog="financeharness serve", description="Run the FinanceHarness service"
@@ -98,7 +98,7 @@ def _serve(argv: list[str]) -> int:
 
 
 def _list() -> int:
-  # Backbones only — the selectable orchestrator profiles (readers are paired
+  # Backbones only: the selectable orchestrator profiles (readers are paired
   # internally and are not a `--profile` choice), matching --profile validation.
   print("Backbones (default marked *):")
   profiles = load_profiles()
@@ -127,7 +127,7 @@ def main() -> None:
 
   ap = argparse.ArgumentParser(
       prog="financeharness",
-      description="FinanceHarness — finance deep-research agent",
+      description="FinanceHarness: finance deep-research agent",
   )
   ap.add_argument(
       "question", nargs="?", help="the research question (or pipe via stdin)"

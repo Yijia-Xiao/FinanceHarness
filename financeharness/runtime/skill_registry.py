@@ -1,4 +1,4 @@
-"""Skill registry — catalog + load-on-demand for workflow recipes.
+"""Skill registry: catalog + load-on-demand for workflow recipes.
 
 A skill is `skills/<name>/SKILL.md`: YAML frontmatter (name == dir, description,
 tags, requires_tools) + a markdown body the model follows as a recipe. Parallel
@@ -120,9 +120,9 @@ class SkillSessionState:
 
 
 def load_skill_registry(skills_root):
-  """Register every `skills/<name>/SKILL.md` under ``skills_root`` (strict — raises
+  """Register every `skills/<name>/SKILL.md` under ``skills_root``.
 
-  on a malformed skill; used for the bundled first-party skills).
+  Strict: raises on a malformed skill. Used for the bundled first-party skills.
   """
   reg = SkillRegistry()
   merge_skills(reg, skills_root, strict=True)
@@ -132,11 +132,11 @@ def load_skill_registry(skills_root):
 def merge_skills(
     reg, skills_root, *, strict = False
 ):
-  """Merge `<name>/SKILL.md` skills from ``skills_root`` into ``reg`` (override by
+  """Merge `<name>/SKILL.md` skills from ``skills_root`` into ``reg``.
 
-  name — later roots win). Returns the count merged. With ``strict=False`` a
-  malformed user skill is skipped, not fatal — a dropped-in skill can't break a
-  run.
+  Override is by name: later roots win. Returns the count merged. With
+  ``strict=False`` a malformed user skill is skipped, not fatal: a dropped-in
+  skill can't break a run.
   """
   if not skills_root.is_dir():
     return 0

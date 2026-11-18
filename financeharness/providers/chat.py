@@ -1,11 +1,9 @@
 """The OpenAI-compatible Chat Completions provider.
 
 The native interface for the local vLLM backbone, and the path any
-OpenAI-compatible
-endpoint speaks. Wraps the :mod:`client` seam — which builds the request,
-applies the
-quirk adapter, and assembles streamed deltas into a ``ChatCompletion`` — and
-normalizes the result into an :class:`AssistantTurn`.
+OpenAI-compatible endpoint speaks. Wraps the :mod:`client` seam (which builds
+the request, applies the quirk adapter, and assembles streamed deltas into a
+``ChatCompletion``) and normalizes the result into an :class:`AssistantTurn`.
 """
 
 from __future__ import annotations

@@ -1,14 +1,14 @@
-"""Reference-based chaining — resolve ``prev:<call_id>.<path>`` arg strings.
+"""Reference-based chaining: resolve ``prev:<call_id>.<path>`` arg strings.
 
 When a tool argument is ``prev:<call_id>.<path>``, the runtime resolves it
 against the structured payload of a prior call (recorded in
-``ToolSessionState.tool_results``) *before* the consumer's schema validates — so
+``ToolSessionState.tool_results``) *before* the consumer's schema validates, so
 a compute tool can consume the full series from a prior data call without
 round-tripping bulk data through the LLM's context.
 
 Path syntax (JSONPath-lite): ``prev:<id>`` (whole dict), ``.field`` (dict key),
 ``[N]`` (index), ``[*]`` (map over a list); tokens compose. Filters, recursive
-descent, and nested ``[*]`` are deliberately unsupported (YAGNI). Never raises —
+descent, and nested ``[*]`` are deliberately unsupported. Never raises:
 failures return a structured :class:`ChainError` the dispatcher turns into an
 ``ok=False`` result the model self-corrects on.
 """
@@ -104,7 +104,7 @@ def _list_dict_keys(obj):
 def _descend_key(cur, key, raw):
   if not isinstance(cur, dict):
     return ChainError(
-        raw, f"field '{key}' — expected dict, got {type(cur).__name__}"
+        raw, f"field '{key}': expected dict, got {type(cur).__name__}"
     )
   if key in cur:
     return cur[key]
@@ -126,7 +126,7 @@ def _index(cur, ix, key, raw):
   idx = int(ix)
   if idx < -len(cur) or idx >= len(cur):
     return ChainError(
-        raw, f"'[{ix}]' on '{key}' — index out of range (length {len(cur)})"
+        raw, f"'[{ix}]' on '{key}': index out of range (length {len(cur)})"
     )
   return cur[idx]
 
@@ -222,6 +222,6 @@ def format_chain_errors(errors):
   """Render ChainErrors as one actionable markdown block for an ok=False result."""
   if not errors:
     return ""
-  lines = ["chaining failed — could not resolve reference(s):"]
+  lines = ["chaining failed. Could not resolve reference(s):"]
   lines.extend(f"  {e.reference}: {e.reason}" for e in errors)
   return "\n".join(lines)

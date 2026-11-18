@@ -1,4 +1,4 @@
-"""Tool dispatch — the never-raise bridge from a tool_call to a tool_result.
+"""Tool dispatch: the never-raise bridge from a tool_call to a tool_result.
 
 Every tool invocation flows through :func:`dispatch`: coerce args → resolve
 reference chaining → validate against the Pydantic schema → run the handler →
@@ -35,8 +35,8 @@ def _append_call_id_footer(markdown, call_id):
     return markdown
   return (
       markdown
-      + f"\n\n_call_id: {call_id} — reference downstream via"
-      f" prev:{call_id}.<path>_"
+      + f"\n\n_call_id: {call_id} (reference downstream via"
+      f" prev:{call_id}.<path>)_"
   )
 
 
@@ -200,7 +200,7 @@ async def dispatch(
         "tool_error",
         elapsed_ms=int((time.time() - t0) * 1000),
     )
-  except Exception as err:  # noqa: BLE001 — never-raise: surface to the model
+  except Exception as err:  # noqa: BLE001 (never-raise: surface to the model)
     return _error_result(
         name,
         args,

@@ -1,4 +1,4 @@
-"""Risk-compute tools — pure-math risk lenses over price/return series."""
+"""Risk-compute tools: pure-math risk lenses over price/return series."""
 
 from financeharness.tools.compute.risk import beta, correlation, var
 

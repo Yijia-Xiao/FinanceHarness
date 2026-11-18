@@ -1,4 +1,4 @@
-"""load_skill — pull a workflow recipe into context + auto-load its tools.
+"""load_skill: pull a workflow recipe into context + auto-load its tools.
 
 Returns each requested skill's SKILL.md body (the recipe the model now follows)
 and auto-loads the schemas of every tool in the skill's `requires_tools`, so the
