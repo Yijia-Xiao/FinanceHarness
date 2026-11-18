@@ -59,6 +59,8 @@ async def _research(args: argparse.Namespace) -> int:
       f"[fh] {traj['termination']} · {traj['rounds']} rounds · "
       f"{len(traj['citations'])} sources · {traj['elapsed_s']}s"
   )
+  if traj.get("error") and args.quiet:
+    _err(f"[fh] error: {traj['error']}")
   if args.save:
     _err(f"[fh] saved {save_trajectory(traj, args.save)}")
   print("\n" + (traj["prediction"] or "(no answer produced)"))

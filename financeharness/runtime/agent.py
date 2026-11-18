@@ -138,6 +138,7 @@ class Agent:
     self.config = config or load_runtime_config()
     self.client = client
     self.provider = provider_for(profile, client)
+    self._client_given = client is not None
     self._system_prompt_override = system_prompt
     self.skill_registry = skill_registry
     # When True, model calls stream and their content deltas are surfaced as
@@ -195,10 +196,22 @@ class Agent:
     """One model call wrapped in the recovery policy: proactive compaction,
 
     then backoff / regenerate / compact / fatal on error, and max_tokens
-    escalation on truncation. Returns a completion, or ``None`` when
-    recovery is exhausted (the loop surfaces a clean termination).
+    escalation on truncation. Returns a completion; raises
+    :class:`recovery.ModelCallError` naming the cause when recovery is exhausted.
     """
     cfg = self.config
+    profile = self.profile
+    # checked before any SDK client is built
+    key_env = None if self._client_given else recovery.missing_api_key(profile)
+    if key_env:
+      raise recovery.ModelCallError(
+          f"no API key for profile '{profile.name}': set {key_env}"
+      )
+
+    def give_up(err, retries = 0, note = ""):
+      cause = recovery.describe_model_error(err, profile, retries)
+      return recovery.ModelCallError(f"{cause} {note}".strip())
+
     max_tokens = cfg.generation.max_tokens
     work = messages
     transient = regen = escalations = 0
@@ -225,7 +238,7 @@ class Agent:
         action = recovery.classify_model_error(err)
         if action == recovery.BACKOFF:
           if transient >= cfg.limits.max_transient_retries:
-            return None
+            raise give_up(err, transient) from err
           await asyncio.sleep(
               recovery.backoff_delay(
                   transient,
@@ -238,20 +251,20 @@ class Agent:
           continue
         if action == recovery.REGENERATE:
           if regen >= cfg.limits.max_regenerate_retries:
-            return None
+            raise give_up(err, regen) from err
           regen += 1
           continue
         if action == recovery.COMPACT:
           if not cfg.recovery.compaction_enabled:
-            return None
+            raise give_up(err, note="(compaction is disabled)") from err
           compacted = recovery.compact_messages(
               work, keep_recent=cfg.recovery.compaction_keep_recent_tool_results
           )
           if compacted is None:
-            return None
+            raise give_up(err, note="(nothing left to compact)") from err
           work = compacted[0]
           continue
-        return None  # FATAL
+        raise give_up(err) from err  # FATAL
 
       if response.finish_reason == "length":
         nxt = recovery.escalate_max_tokens(
@@ -371,6 +384,7 @@ class Agent:
     rounds = 0
     empty_replies = 0
     termination = "error"
+    error = None
     prediction = ""
     grounding_reviewed = False
 
@@ -388,13 +402,16 @@ class Agent:
         response = await self._call_model(
             messages, session_state.visible_schemas(registry), emit
         )
-      except Exception as exc:  # noqa: BLE001 — backstop; recovery normally returns None
+      except recovery.ModelCallError as exc:
         termination = "error"
-        emit("error", {"error": f"{type(exc).__name__}: {exc}"})
+        error = str(exc)
+        emit("error", {"error": error})
         break
-      if response is None:
+      except Exception as exc:  # noqa: BLE001
+        # backstop for errors outside the model call
         termination = "error"
-        emit("error", {"error": "model call failed after recovery"})
+        error = f"{type(exc).__name__}: {exc}"
+        emit("error", {"error": error})
         break
 
       response.tool_calls = _with_run_unique_ids(response.tool_calls, call_ids)
@@ -457,6 +474,9 @@ class Agent:
       )
       if termination == "answer" and not prediction.strip():
         termination = "empty_answer"
+      if termination == "error":
+        error = "the model returned no output (an empty or blocked response)"
+        emit("error", {"error": error})
       # Ground only a report that did research — a no-tool answer (a meta/"what
       # can you do" question, or a pure-knowledge reply) has nothing to ground
       # against, and the review would clobber it.
@@ -482,6 +502,7 @@ class Agent:
         tool_log=tool_log,
         elapsed_s=round(time.monotonic() - t0, 3),
         grounding_reviewed=grounding_reviewed,
+        error=error,
         emit=emit,
     )
 
@@ -496,6 +517,7 @@ class Agent:
       tool_log,
       elapsed_s,
       grounding_reviewed,
+      error,
       emit,
   ):
     """The single exit point — assemble the trajectory, applying the
@@ -510,6 +532,8 @@ class Agent:
         "question": question,
         "prediction": prediction,
         "termination": termination,
+        # why the run ended as "error"; None otherwise
+        "error": error,
         "rounds": rounds,
         "messages": messages,
         "tool_log": tool_log,

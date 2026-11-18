@@ -13,7 +13,9 @@ is deterministic without a live server. Numeric knobs come from config.
 
 from __future__ import annotations
 
+import os
 import random
+import re
 
 from financeharness.runtime.retry import is_default_retryable, status_of
 
@@ -63,6 +65,74 @@ def is_context_overflow(err):
   return any(sig in text for sig in _CONTEXT_OVERFLOW_SIGNATURES)
 
 
+class ModelCallError(Exception):
+  """Raised when a model call cannot be completed. ``str()`` is the cause, for the user."""
+
+
+_MAX_CAUSE_CHARS = 300
+# Text that looks like an API key: the common vendor prefixes and a long tail.
+_KEY_LIKE_RE = re.compile(r"\b(sk-|AIza)[A-Za-z0-9_-]{8,}")
+_BAD_KEY_SIGNATURES = ("api key not valid", "api_key_invalid", "invalid api key")
+
+
+def missing_api_key(profile, env = None):
+  """The environment variable to set when ``profile`` cannot run without a key.
+
+  None when a key resolves, or when the endpoint may not need one: a
+  self-served OpenAI-compatible endpoint (a ``base_url`` is set) runs keyless,
+  and the Gemini SDK also accepts ``GOOGLE_API_KEY``.
+  """
+  env = os.environ if env is None else env
+  if profile.resolve_api_key(env):
+    return None
+  if profile.provider == "gemini":
+    return None if env.get("GOOGLE_API_KEY") else profile.api_key_env
+  return profile.api_key_env if profile.base_url is None else None
+
+
+def _is_bad_key(err):
+  """True for an HTTP 400 that reports an invalid API key (Gemini does this)."""
+  text = _message_of(err).lower()
+  return status_of(err) == 400 and any(sig in text for sig in _BAD_KEY_SIGNATURES)
+
+
+def _detail_of(err, profile):
+  """The error's own message on one line, shortened, with key-like text masked."""
+  text = " ".join(_message_of(err).split())
+  key = profile.resolve_api_key()
+  if len(key) >= 8:
+    text = text.replace(key, "<api key>")
+  text = _KEY_LIKE_RE.sub(lambda m: f"{m.group(1)}<masked>", text)
+  if not text:
+    text = "the call timed out" if isinstance(err, TimeoutError) else "no details given"
+  return text[:_MAX_CAUSE_CHARS]
+
+
+def describe_model_error(err, profile, retries = 0):
+  """One line that tells the user why a model call failed and what to check."""
+  status = status_of(err)
+  detail = _detail_of(err, profile)
+  where = f"profile '{profile.name}', model '{profile.model}'"
+  if status in (401, 403) or _is_bad_key(err):
+    hint = (
+        "check the endpoint's access settings"
+        if profile.api_key_literal is not None
+        else f"check {profile.api_key_env}"
+    )
+    cause = f"the API rejected the credentials (HTTP {status}, {where}): {hint}. {detail}"
+  elif status == 404:
+    cause = (
+        f"the model or endpoint was not found (HTTP 404, {where}): check the"
+        f" model name and base URL. {detail}"
+    )
+  else:
+    kind = type(err).__name__ + (f", HTTP {status}" if status else "")
+    cause = f"the model call failed ({kind}, {where}): {detail}"
+  if retries:
+    cause += f" (gave up after {retries} {'retry' if retries == 1 else 'retries'})"
+  return cause
+
+
 def classify_model_error(err):
   """Map an exception to COMPACT / REGENERATE / BACKOFF / FATAL.
 
@@ -73,6 +143,8 @@ def classify_model_error(err):
   """
   if is_context_overflow(err):
     return COMPACT
+  if _is_bad_key(err):
+    return FATAL
   if status_of(err) == 400:
     return REGENERATE
   if is_default_retryable(err) or _is_transient_by_name(err):
