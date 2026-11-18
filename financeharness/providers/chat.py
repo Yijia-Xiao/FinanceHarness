@@ -31,7 +31,7 @@ def turn_from_completion(cc):
     ).get("extra_content")
     calls.append(
         ToolCall(
-            id=tc.id,
+            id=tc.id or "",
             name=tc.function.name,
             arguments=tc.function.arguments,
             extra=extra or None,

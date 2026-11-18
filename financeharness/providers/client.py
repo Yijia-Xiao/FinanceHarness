@@ -200,7 +200,7 @@ def _assemble_completion(
   """
   calls = [
       ChatCompletionMessageToolCall(
-          id=acc["id"] or f"call_{idx}",
+          id=acc["id"],
           type="function",
           function=Function(name=acc["name"], arguments=acc["arguments"]),
           # preserve the provider's tool-call extra_content (Gemini thought_signature);

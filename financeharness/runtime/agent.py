@@ -19,6 +19,7 @@ from collections.abc import Callable
 from typing import Any
 
 from financeharness.providers import provider_for
+from financeharness.providers.base import ToolCall
 from financeharness.runtime import recovery
 from financeharness.runtime.config import load_runtime_config
 from financeharness.runtime.context_budget import over_budget
@@ -77,6 +78,42 @@ def _ui_tool_result(name, result):
       _UI_RESULT_BUDGET // 3
   )  # head + tail so end-of-output figures (implied/range) survive
   return md[: _UI_RESULT_BUDGET - tail].rstrip() + "\n…\n" + md[-tail:].lstrip()
+
+
+def _usable_id(call_id):
+  """True for an id that can be written in a ``prev:<call_id>.<path>`` reference."""
+  return bool(call_id) and all(
+      c.isascii() and (c.isalnum() or c in "_-") for c in call_id
+  )
+
+
+def _with_run_unique_ids(tool_calls, used):
+  """Return ``tool_calls`` with ids that are unique within the run.
+
+  A call keeps the id the API sent unless it is empty, cannot be written in a
+  ``prev:`` reference, or is already in ``used``; such a call gets
+  ``call_<n>``. ``used`` is updated. Results are stored and referenced by this
+  id, so a repeated id would make an earlier result unreachable.
+  """
+  kept = []
+  for tc in tool_calls:
+    keep = _usable_id(tc.id) and tc.id not in used
+    if keep:
+      used.add(tc.id)
+    kept.append(keep)
+  out = []
+  for tc, keep in zip(tool_calls, kept, strict=True):
+    if keep:
+      out.append(tc)
+      continue
+    n = len(used) + 1
+    call_id = f"call_{n}"
+    while call_id in used:
+      n += 1
+      call_id = f"call_{n}"
+    used.add(call_id)
+    out.append(ToolCall(call_id, tc.name, tc.arguments, tc.extra))
+  return out
 
 
 class Agent:
@@ -319,6 +356,15 @@ class Agent:
         {"role": "user", "content": question},
     ]
     tool_log: list[dict[str, Any]] = []
+    call_ids = {
+        call_id
+        for m in messages
+        for call_id in (
+            m.get("tool_call_id"),
+            *(tc.get("id") for tc in m.get("tool_calls") or []),
+        )
+        if call_id
+    }
 
     limits = self.config.limits
     t0 = time.monotonic()
@@ -351,6 +397,7 @@ class Agent:
         emit("error", {"error": "model call failed after recovery"})
         break
 
+      response.tool_calls = _with_run_unique_ids(response.tool_calls, call_ids)
       messages.append(response.to_message())
 
       if response.tool_calls:
