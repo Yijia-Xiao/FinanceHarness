@@ -20,5 +20,6 @@ serve:  ## run the optional HTTP+SSE service on $(PORT)
 test:  ## run the test suite
 	uv run pytest
 
-lint:  ## check the code with ruff
+lint:  ## check lint and formatting with ruff
 	uv run ruff check
+	uv run ruff format --check
