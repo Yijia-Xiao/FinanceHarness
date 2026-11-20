@@ -17,7 +17,7 @@ import asyncio
 from pydantic import BaseModel, Field, field_validator
 
 from financeharness.runtime.tool_registry import ToolError, ToolResponse, ToolSpec
-from financeharness.tools.research.search_backends import DdgsBackend
+from financeharness.tools.research.search_backends import default_backend
 
 _DEFAULT_MAX_RESULTS = 8
 _OVERFETCH_FACTOR = 2  # pull ~2× candidates so validation can drop the unfetchable
@@ -97,7 +97,7 @@ def build_search_spec(
     When ``validator`` is given, results are pre-flight-validated (over-fetch →
     drop unfetchable → warm cache); without it, raw backend results are returned.
     """
-    backend = backend or DdgsBackend()
+    backend = backend or default_backend()
 
     async def handler(req):
         per = req.max_results or default_max_results

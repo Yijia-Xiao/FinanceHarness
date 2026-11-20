@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 from financeharness.providers import complete, get_profile
 from financeharness.runtime.config import load_runtime_config
 from financeharness.runtime.jsonutil import extract_json_obj
-from financeharness.tools.research.search_backends import DdgsBackend
+from financeharness.tools.research.search_backends import default_backend
 
 EventCallback = Callable[[str, dict[str, Any]], None]
 
@@ -163,8 +163,8 @@ async def scope_question(
     # on the backbone the question uses; the small reader under-asks on subtly ambiguous
     # prompts. The service passes the active backbone; this default covers profile-less calls.
     profile = profile or get_profile()
-    backend = backend or DdgsBackend()
     cfg = config or load_runtime_config()
+    backend = backend or default_backend(cfg)
     today = today or datetime.date.today().isoformat()
     hits = await _snapshot_hits(question, backend)
     return await _scope_from_snapshot(
@@ -194,8 +194,8 @@ async def scope_question_stream(
     """
     emit = on_event or (lambda _k, _d: None)
     profile = profile or get_profile()
-    backend = backend or DdgsBackend()
     cfg = config or load_runtime_config()
+    backend = backend or default_backend(cfg)
     today = today or datetime.date.today().isoformat()
 
     emit("tool_call", {"name": "search", "args": {"query": question}, "round": 0})
