@@ -101,6 +101,22 @@ class FetchConfig(_Section):
         return v
 
 
+class SearchConfig(_Section):
+    """Web search backend."""
+
+    # "ddgs" (DuckDuckGo, the default) or "youcom" (You.com; keyless, or keyed
+    # when YDC_API_KEY is set).
+    backend: str = "ddgs"
+
+    @field_validator("backend")
+    @classmethod
+    def _known_backend(cls, v):
+        v = v.strip().lower()
+        if v not in ("ddgs", "youcom"):
+            raise ValueError("must be 'ddgs' or 'youcom'")
+        return v
+
+
 class RuntimeConfig(_Section):
     """All runtime configuration sections after defaults/file/env merging."""
 
@@ -110,6 +126,11 @@ class RuntimeConfig(_Section):
     recovery: RecoveryConfig = RecoveryConfig()
     reader: ReaderConfig = ReaderConfig()
     fetch: FetchConfig = FetchConfig()
+    search: SearchConfig = SearchConfig()
+
+
+def _search_backend(raw):
+    return SearchConfig(backend=raw).backend
 
 
 def _sec_user_agent(raw):
@@ -125,6 +146,7 @@ _ENV_OVERRIDES: dict[str, tuple[str, str, Callable[[str], Any]]] = {
     "MAX_LLM_CALL_PER_RUN": ("limits", "max_rounds", int),
     "CONTEXT_WINDOW": ("recovery", "context_window", int),
     "FH_SEC_USER_AGENT": ("fetch", "sec_user_agent", _sec_user_agent),
+    "FH_SEARCH_BACKEND": ("search", "backend", _search_backend),
 }
 
 

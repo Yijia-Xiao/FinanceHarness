@@ -113,7 +113,8 @@ needed:
 {
   "limits": { "max_rounds": 60 },
   "reader": { "max_chars": 200000 },
-  "fetch": { "sec_user_agent": "Example Research admin@example.com" }
+  "fetch": { "sec_user_agent": "Example Research admin@example.com" },
+  "search": { "backend": "youcom" }
 }
 ```
 
@@ -122,6 +123,10 @@ needed:
   profile, else `recovery.context_window`).
 - `fetch.sec_user_agent` (or `FH_SEC_USER_AGENT`): User-Agent sent to sec.gov.
   The SEC asks automated clients for a name and a contact email.
+- `search.backend` (or `FH_SEARCH_BACKEND`): `ddgs` (DuckDuckGo, the default) or
+  `youcom`. The `youcom` backend needs no key (about 100 searches a day); set
+  `YDC_API_KEY` to use the keyed [You.com Search API](https://you.com/docs/api-reference/search/v1-search)
+  instead. Only the search query is sent to You.com.
 
 A `runtime.json` that cannot be used is ignored as a whole. A profile that is
 not valid is skipped; if it overrides a built-in profile, the built-in one is
