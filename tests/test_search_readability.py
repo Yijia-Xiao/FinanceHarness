@@ -50,12 +50,16 @@ def test_search_readability_in_model_output(readable, returned, notice):
     assert [r["url"] for r in result.structured["results"]] == [
         backend.hits[i].url for i in returned
     ]
+    message = result.for_model()
+    for i, hit in enumerate(backend.hits):
+        assert (hit.url in message) == (i in returned)
     if notice:
-        assert notice in result.for_model()
-        assert "unverified leads" in result.for_model()
+        assert notice in message
+        assert "unverified leads" in message
+        assert message.index(notice) < message.index(backend.hits[returned[0]].url)
     else:
-        assert "unverified leads" not in result.for_model()
-        assert "Readability checks passed" not in result.for_model()
+        assert "unverified leads" not in message
+        assert "Readability checks passed" not in message
     if readable is not None:
         assert result.meta["validated"] == len(readable)
         assert result.meta["dropped"] == len(backend.hits) - len(readable)
@@ -83,3 +87,4 @@ def test_warning_counts_checked_links_when_the_batch_exceeds_the_validation_limi
     assert result.structured["count"] == len(backend.hits)
     assert len(checked) == _MAX_VALIDATE
     assert f"Readability checks passed: 0 of {len(checked)}." in result.for_model()
+    assert backend.hits[-1].url in result.for_model()
