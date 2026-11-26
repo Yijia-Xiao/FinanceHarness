@@ -2,12 +2,8 @@
 
 Runs one or more queries through a :class:`SearchBackend`, dedups by URL,
 records titles, and (when a validator is provided) **over-fetches candidates
-and keeps only the fetchable ones**: it pre-fetches each with a quick GET so
-paywalls / bot-walls / dead links are dropped before the model ever sees them,
-and warms the cache so the later `visit` is an instant, already-validated hit.
-The model spends its attention on research, not on fighting false-positive
-results. Falls back to unvalidated results if validation yields too few (never
-starve the model).
+and prefers fetchable ones**. Successful checks warm the cache for a later
+`visit`. If none pass, it returns the original candidates as unverified leads.
 """
 
 from __future__ import annotations
@@ -26,9 +22,8 @@ _VALIDATE_CONCURRENCY = 8
 _MIN_CHARS = 200  # extracted-text floor that distinguishes real content from a wall
 
 _DESCRIPTION = (
-    "Search the web for one or more queries and return ranked, fetchable"
-    " results (title, URL, snippet) to investigate. Results are pre-checked for"
-    " readability, so `visit` the ones you pick to read and cite them."
+    "Search the web for ranked leads (title, URL, snippet). The search prefers readable"
+    " pages when checks are available. Use `visit` to read a page before citing it."
 )
 
 
@@ -55,8 +50,10 @@ _VISIT_NUDGE = (
 )
 
 
-def _render(results):
+def _render(results, notice=""):
     lines = [f"Found {len(results)} result(s):", ""]
+    if notice:
+        lines += [notice, ""]
     for i, r in enumerate(results, 1):
         lines.append(f"{i}. **{r['title'] or r['url']}**: {r['url']}")
         if r["snippet"]:
@@ -126,20 +123,26 @@ def build_search_spec(
             )
 
         validated_meta: dict = {}
+        notice = ""
         if validator is not None:
             valid = await _validate(candidates, validator, cache)
+            checked = min(len(candidates), _MAX_VALIDATE)
             validated_meta = {
                 "candidates": len(candidates),
                 "validated": len(valid),
-                "dropped": len(candidates[:_MAX_VALIDATE]) - len(valid),
+                "dropped": checked - len(valid),
             }
             # Fall back to unvalidated candidates rather than starve the model.
             results = (valid or candidates)[:cap]
+            if not valid:
+                notice = (
+                    f"Readability checks passed: 0 of {checked}. Treat results as unverified leads."
+                )
         else:
             results = candidates[:cap]
 
         return ToolResponse(
-            markdown=_render(results),
+            markdown=_render(results, notice),
             structured={"results": results, "count": len(results)},
             meta={"backend": backend.name, **validated_meta},
         )
