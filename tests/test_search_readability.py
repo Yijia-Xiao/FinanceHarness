@@ -86,5 +86,6 @@ def test_warning_counts_checked_links_when_the_batch_exceeds_the_validation_limi
     )
     assert result.structured["count"] == len(backend.hits)
     assert len(checked) == _MAX_VALIDATE
+    assert result.meta["dropped"] == len(checked)
     assert f"Readability checks passed: 0 of {len(checked)}." in result.for_model()
     assert backend.hits[-1].url in result.for_model()
